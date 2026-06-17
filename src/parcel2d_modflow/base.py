@@ -6,12 +6,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
+import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from parcel2d_modflow import components, utils
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 type Dimension = Literal["1D", "2D"]
 
