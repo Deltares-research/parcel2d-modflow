@@ -1,0 +1,78 @@
+name: CI Parcel2D-Modflow
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    name: Run pre-commit hooks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files
+
+
+  test:
+    name: ${{ matrix.pixi-environment }} - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: pre-commit
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+        pixi-environment:
+          - py313
+          - py314
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v6
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.6
+        with:
+          manifest-path: pyproject.toml
+      - name: Run tests in current test environment
+        run: pixi run -e ${{ matrix.pixi-environment }} test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v6
+      - name: Setup Pixi
+        uses: prefix-dev/setup-pixi@v0.9.6
+        with:
+          manifest-path: pyproject.toml
+      - name: Run tests
+        run: pixi run test
+      - name: Publish code coverage
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

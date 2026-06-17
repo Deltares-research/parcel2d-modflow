@@ -1,0 +1,51 @@
+[workspace]
+authors = ["smknaake <bas.knaake@deltares.nl>"]
+channels = ["conda-forge"]
+name = "parcel2d-modflow"
+platforms = ["win-64", "linux-64"]
+version = "0.1.0"
+
+[tasks]
+format = "ruff format --check ."
+lint = "ruff check --fix ."
+install-hooks = "pre-commit install"
+precommit-run = "pre-commit run --all-files"
+test = "pytest --verbose --cov=parcel2d_modflow --cov-report xml --cov-report term"
+test-local = "pytest -v --cov"
+
+[dependencies]
+python = ">=3.12"
+flopy = "*"
+numpy = "*"
+pandas = "*"
+geopandas = "*"
+pyarrow = "*"
+pydantic = "*"
+pyogrio = "*"
+h5netcdf = "*"
+xarray = "*"
+rioxarray = "*"
+pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+pooch = "*"
+pre-commit = "*"
+
+[pypi-dependencies]
+parcel2d_modflow = { path = ".", editable = true }
+
+[feature.docs.dependencies]
+sphinx = "*"
+pydata-sphinx-theme = "*"
+sphinx-design = "*"
+myst-nb = "*"
+
+[feature.docs.tasks]
+build-docs = "sphinx-build -b html docs ./docs/build"
+rm-jupyter = "rm -r ./docs/jupyter_execute"
+rm-build = "rm -r ./docs/build"
+rm-generated = "rm -r ./docs/api_reference/generated"
+rebuild-docs = { depends-on = ["rm-jupyter", "rm-build", "rm-generated", "build-docs"] }
+
+[environments]
+docs = ["docs"]
