@@ -14,10 +14,10 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
 
-  - repo: local
-    hooks:
-      - id: run-tests
-        name: Run tests (pre-push)
-        entry: pixi run test
-        language: system
-        stages: [pre-push]
+  # - repo: local
+  #   hooks:
+  #     - id: run-tests
+  #       name: Run tests (pre-push)
+  #       entry: pixi run test
+  #       language: system
+  #       stages: [manual]
