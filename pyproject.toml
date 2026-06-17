@@ -2,7 +2,9 @@
 maintainers = [
     {name = "Bas Knaake", email = "bas.knaake@deltares.nl"},
 ]
-dependencies = []
+dependencies = [
+    "loguru"
+]
 name = "parcel2d-modflow"
 requires-python = ">=3.12"
 dynamic = ["version"]

@@ -6054,7 +6054,9 @@ packages:
 - pypi: ./
   name: parcel2d-modflow
   version: 0.1.0
-  sha256: 963732b019ac9601b9ad273750072057ecd603d622527032eb6e96d2dbb80496
+  sha256: 30e6bbe59b370bf7e1a859f8921766cc82ddd04ef7b13f341ecaa36e3d7c0452
+  requires_dist:
+  - loguru
   requires_python: '>=3.12'
 - conda: https://conda.anaconda.org/conda-forge/noarch/parso-0.8.7-pyhcf101f3_0.conda
   sha256: 611882f7944b467281c46644ffde6c5145d1a7730388bcde26e7e86819b0998e

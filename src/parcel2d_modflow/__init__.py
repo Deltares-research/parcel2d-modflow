@@ -1,3 +1,7 @@
+from parcel2d_modflow.base import ModelSettings, Parcel
+from parcel2d_modflow.mf.module import Modflow
+from parcel2d_modflow.modeldata import LhmData, Presets
+
 __version__ = "0.1.0"
 
 __doc__ = """
@@ -8,4 +12,4 @@ in conjunction with it. As such, it contains a number of classes and functions t
 related to the somers-peatparcel2d-aap package and documentation often refers to SOMERS.
 """
 
-__all__ = []
+__all__ = ["ModelSettings", "Parcel", "Modflow", "LhmData", "Presets"]
