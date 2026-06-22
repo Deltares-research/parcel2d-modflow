@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from parcel2d_modflow._io import read_lhm_data
 from parcel2d_modflow.base import ModelSettings, Parcel
 from parcel2d_modflow.modeldata import Presets
 
@@ -63,6 +64,54 @@ def parcel(model_settings, soilmap):
     p.soilprofile = soilprofile
     p.discretize_soildepth(model_settings)
     return p
+
+
+@pytest.fixture
+def lhm_confining_nc(testdatadir):
+    """
+    Fixture to create a tmp netcdf file that contains relevant LHM confining layer
+    information to test.
+
+    """
+    return testdatadir / "lhm_confining.nc"
+
+
+@pytest.fixture
+def lhm_flux_nc(testdatadir):
+    """
+    Fixture to create a tmp netcdf file that contains relevant LHM flux information to test.
+
+    """
+    return testdatadir / "lhm_flux.nc"
+
+
+@pytest.fixture
+def lhm_recharge_nc(testdatadir):
+    """
+    Fixture to create a tmp netcdf file that contains relevant LHM recharge information to test.
+
+    """
+    return testdatadir / "lhm_recharge.nc"
+
+
+@pytest.fixture
+def lhm_phreatic_head_nc(testdatadir):
+    """
+    Fixture to create a tmp netcdf file that contains relevant LHM phreatic head information to test.
+    """
+    return testdatadir / "lhm_phreatic_head.nc"
+
+
+@pytest.fixture
+def lhm_data(lhm_confining_nc, lhm_flux_nc, lhm_recharge_nc, lhm_phreatic_head_nc):
+    """
+    `somers.modeldata.LhmData` fixture that reads LHM confining, flux, and recharge data
+    from the LHM NetCDF fixtures.
+
+    """
+    return read_lhm_data(
+        lhm_confining_nc, lhm_flux_nc, lhm_recharge_nc, lhm_phreatic_head_nc
+    )
 
 
 def _create_preset(data, date_range, name):
