@@ -1,22 +1,43 @@
 from pathlib import Path
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from parcel2d_modflow import components
 from parcel2d_modflow.base import ModelSettings
-from parcel2d_modflow.modeldata import LhmData
+from parcel2d_modflow.modeldata import LhmData, Soilmap
 
 
-@pytest.mark.unittest
-def test_foo(lhm_recharge_nc, lhm_flux_nc, lhm_confining_nc, lhm_phreatic_head_nc):
-    assert lhm_recharge_nc.exists()
-    assert lhm_flux_nc.exists()
-    assert lhm_confining_nc.exists()
-    assert lhm_phreatic_head_nc.exists()
+@pytest.fixture
+def start_date():
+    return pd.Timestamp("2022-01-01")
+
+
+@pytest.fixture
+def end_date():
+    return pd.Timestamp("2022-02-01")
+
+
+@pytest.fixture
+def soilmap_files(tmp_path, soilmap):
+    """
+    Create individual files to test Soilmap.from_files.
+
+    """
+    soilmap_file = tmp_path / r"soilmap.geoparquet"
+    soilprofiles_file = tmp_path / r"soilprofiles.parquet"
+    soilmap.soilmap.to_parquet(soilmap_file)
+
+    sp = soilmap.soilprofiles
+    # Convert to percentage. Soilmap gives organic matter content in percentage.
+    sp["organicmattercontent"] = sp["organicmattercontent"] * 100
+    # Columns "sand", "lithology", and "thickness" are generated in Soilmap.from_files
+    sp.drop(columns=["sand", "lithology", "thickness"]).to_parquet(soilprofiles_file)
+    return soilmap_file, soilprofiles_file
 
 
 class TestLhmData:
@@ -120,6 +141,67 @@ class TestLhmData:
             match="Cannot load confining layer from LhmData. LhmData.confining",
         ):
             lhm_data.load_confining_layer(parcel, 1.2)
+
+
+class TestSoilmap:
+    @pytest.mark.unittest
+    def test_initialize_soilmap(self, soilmap):
+        assert isinstance(soilmap, Soilmap)
+        assert isinstance(soilmap.soilmap, gpd.GeoDataFrame)
+        assert isinstance(soilmap.soilprofiles, pd.DataFrame)
+
+    @pytest.mark.unittest
+    def test_from_files(self, soilmap_files):
+        soilmap_file, soilprofiles_file = soilmap_files
+        s = Soilmap.from_files(soilmap_file, soilprofiles_file)
+        assert isinstance(s, Soilmap)
+        assert all(
+            col in s.soilprofiles.columns for col in ["sand", "lithology", "thickness"]
+        )
+        assert_array_equal(s.soilprofiles["sand"], [20, 5, 5, 5, 20, 5, 25, 25])
+        assert_array_equal(s.soilprofiles["lithology"], [3, 2, 1, 1, 3, 1, 1, 1])
+        assert_array_almost_equal(
+            s.soilprofiles["thickness"],
+            [0.2, 0.15, 0.35, 0.5, 0.15, 0.15, 0.2, 0.7],
+        )
+        assert_array_almost_equal(
+            s.soilprofiles["organicmattercontent"],
+            [0.35, 0.25, 0.5, 0.7, 0.35, 0.5, 0.75, 0.8],
+        )
+
+    @pytest.mark.parametrize("x, y, expected", [(1, 1, "hVb"), (3, 1, "hVc")])
+    def test_soilcode_at(self, x, y, expected, soilmap):
+        soilunit_code = soilmap.soilcode_at(x, y)
+        assert soilunit_code == expected
+
+    @pytest.mark.unittest
+    def test_load_soilprofile(self, empty_parcel, soilmap):
+        profile = soilmap.load_soilprofile(empty_parcel)
+        assert isinstance(profile, pd.DataFrame)
+        assert_array_equal(profile["normalsoilprofile_id"], 1010)
+        assert_array_equal(
+            profile.columns,
+            [
+                "normalsoilprofile_id",
+                "lowervalue",
+                "uppervalue",
+                "organicmattercontent",
+                "peattype",
+                "loamcontent",
+                "lutitecontent",
+                "siltcontent",
+                "cnratio",
+                "soilunit_code",
+                "sand",
+                "lithology",
+                "thickness",
+                "geology",
+            ],
+        )
+
+        empty_parcel.soilcode = "hVc"
+        profile = soilmap.load_soilprofile(empty_parcel)
+        assert_array_equal(profile["normalsoilprofile_id"], 1050)
 
 
 class TestPresets:  # TODO: Move this to parcel2d-modflow

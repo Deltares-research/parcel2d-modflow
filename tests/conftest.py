@@ -1,11 +1,13 @@
 from pathlib import Path
 
+import geopandas as gpd
 import pandas as pd
 import pytest
+from shapely import geometry as gmt
 
-from parcel2d_modflow._io import read_lhm_data
+from parcel2d_modflow import read_lhm_data
 from parcel2d_modflow.base import ModelSettings, Parcel
-from parcel2d_modflow.modeldata import Presets
+from parcel2d_modflow.modeldata import Presets, Soilmap
 
 
 @pytest.fixture
@@ -67,6 +69,66 @@ def parcel(model_settings, soilmap):
 
 
 @pytest.fixture
+def modflow_parameters():
+    """
+    Simple DataFrame with modflow parameters for two runs.
+
+    """
+    return pd.DataFrame(
+        {
+            "runnr": [1, 2],
+            "kh (m/d)": [0.9, 0.7],
+            "sy_peat (-)": [0.4, 0.5],
+            "sy_clay (-)": [0.3, 0.3],
+        }
+    )
+
+
+@pytest.fixture
+def soilmap():
+    """
+    Test `parcel2d_modflow.modeldata.Soilmap` object with two soil units and profiles.
+
+    """
+    gdf = gpd.GeoDataFrame(
+        {
+            "maparea_id": ["a", "b"],
+            "normalsoilprofile_id": [1010, 1050],
+            "soilunit_code": ["hVb", "hVc"],
+            "geometry": [gmt.box(0, 0, 2, 2), gmt.box(2, 0, 4, 2)],
+        },
+        crs=28992,
+    )
+    profiles = pd.DataFrame(
+        {
+            "normalsoilprofile_id": [1010, 1010, 1010, 1010, 1050, 1050, 1050, 1050],
+            "lowervalue": [0, 0.2, 0.35, 0.7, 0, 0.15, 0.3, 0.5],
+            "uppervalue": [0.2, 0.35, 0.7, 1.2, 0.15, 0.3, 0.5, 1.2],
+            "organicmattercontent": [0.35, 0.25, 0.50, 0.70, 0.35, 0.50, 0.75, 0.80],
+            "peattype": [
+                "verweerdKleirijk",
+                "",
+                "bosveen",
+                "bosveen",
+                "verweerdKleirijk",
+                "",
+                "zeggeveen",
+                "zeggeveen",
+            ],
+            "loamcontent": [80, 95, 95, 95, 80, 95, 75, 75],
+            "lutitecontent": [40, 60, 60, 60, 40, 60, 18, 18],
+            "siltcontent": [40, 35, 35, 35, 40, 35, 57, 57],
+            "cnratio": [12, 14, 18, 18, 12, 14, 22, 22],
+            "soilunit_code": ["hVb", "hVb", "hVb", "hVb", "hVc", "hVc", "hVc", "hVc"],
+            "sand": [20, 5, 5, 5, 20, 5, 25, 25],
+            "lithology": [3, 2, 1, 1, 3, 3, 1, 1],
+            "thickness": [0.2, 0.15, 0.35, 0.5, 0.15, 0.15, 0.2, 0.7],
+        }
+    )
+    return Soilmap(gdf, profiles)
+
+
+@pytest.fixture
 def lhm_confining_nc(testdatadir):
     """
     Fixture to create a tmp netcdf file that contains relevant LHM confining layer
@@ -112,6 +174,15 @@ def lhm_data(lhm_confining_nc, lhm_flux_nc, lhm_recharge_nc, lhm_phreatic_head_n
     return read_lhm_data(
         lhm_confining_nc, lhm_flux_nc, lhm_recharge_nc, lhm_phreatic_head_nc
     )
+
+
+@pytest.fixture
+def simple_bro_soilmap():
+    """
+    Small extraction of 4 soilunits from the BRO soilmap geopackage.
+
+    """
+    return Path(__file__).parent / r"data/test_soilmap_v2023.gpkg"
 
 
 def _create_preset(data, date_range, name):

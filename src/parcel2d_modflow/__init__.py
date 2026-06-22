@@ -1,6 +1,11 @@
+from parcel2d_modflow._io.read import (
+    read_bro_soilmap,
+    read_lhm_data,
+    read_modflow_parameters,
+)
 from parcel2d_modflow.base import ModelSettings, Parcel
 from parcel2d_modflow.mf.module import Modflow
-from parcel2d_modflow.modeldata import LhmData, Presets
+from parcel2d_modflow.modeldata import LhmData, Presets, Soilmap
 
 __version__ = "0.1.0"
 
@@ -12,4 +17,14 @@ in conjunction with it. As such, it contains a number of classes and functions t
 related to the somers-peatparcel2d-aap package and documentation often refers to SOMERS.
 """
 
-__all__ = ["ModelSettings", "Parcel", "Modflow", "LhmData", "Presets"]
+__all__ = [
+    "ModelSettings",
+    "Parcel",
+    "Modflow",
+    "LhmData",
+    "Soilmap",
+    "Presets",
+    "read_bro_soilmap",
+    "read_lhm_data",
+    "read_modflow_parameters",
+]

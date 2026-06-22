@@ -5,10 +5,15 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from shapely import geometry as gmt
 
-from parcel2d_modflow import components
+from parcel2d_modflow import components, utils
+from parcel2d_modflow.validation import validate_soilmap
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    import geopandas as gpd
     import xarray as xr
 
     from parcel2d_modflow.base import ModelSettings, Parcel
@@ -135,7 +140,7 @@ class LhmData:
 
         Returns
         -------
-        :class:`~somers.components.Aquifer`
+        :class:`~parcel2d_modflow.components.Aquifer`
             Recharge component for Modflow model containing the start recharge for the
             time period and the recharge through time.
 
@@ -171,7 +176,7 @@ class LhmData:
 
         Returns
         -------
-        :class:`~somers.components.Recharge`
+        :class:`~parcel2d_modflow.components.Recharge`
             Recharge component for Modflow model containing the start recharge for the
             time period and the recharge through time.
 
@@ -235,6 +240,144 @@ class LhmData:
             ) from e
 
         return head
+
+
+@dataclass(repr=False, slots=True)
+class Soilmap:
+    """
+    Data container to retrieve all soilmap information (soilcodes and soilprofiles) for
+    individual parcels that is needed for SOMERS runs.
+
+    Parameters
+    ----------
+    soilmap : gpd.GeoDataFrame
+        `GeoDataFrame` with polygons indicating the spatial extents of different soiltypes.
+        and associated information to use for spatial selections.
+    soilprofiles : pd.DataFrame
+        `DataFrame` containing associated soilprofile information for the polygons in the
+        soilmap `GeoDataFrame`.
+    """
+
+    soilmap: gpd.GeoDataFrame
+    soilprofiles: pd.DataFrame
+
+    def __repr__(self):
+        soilmap = type(self.soilmap)
+        soilprofiles = type(self.soilprofiles)
+        return f"{self.__class__.__name__}({soilmap=}, {soilprofiles=})"
+
+    @classmethod
+    @validate_soilmap
+    def from_files(cls, soilmap: str | Path, soilprofiles: str | Path):
+        """
+        Create a `Soilmap` instance from individual files containing the soilmap and
+        soilprofiles information. The files should be in the correct format (e.g.
+        Geoparquet for the soilmap and csv or parquet for the soilprofiles).
+
+        Parameters
+        ----------
+        soilmap : str | Path
+            Path to the file containing the soilmap information. The file should be
+            readable by geopandas.
+        soilprofiles : str | Path
+            Path to the file containing the soilprofiles information. The file should be
+            in csv-like or parquet format.
+
+        Returns
+        -------
+        :class:`~somers.modeldata.Soilmap`
+            `Soilmap` instance containing the soilmap and soilprofiles information.
+        """
+        soilmap = utils.geopandas_read(soilmap)
+        soilprofiles = utils.pandas_read(soilprofiles)
+
+        soilprofiles["thickness"] = (
+            soilprofiles["uppervalue"] - soilprofiles["lowervalue"]
+        )
+
+        to_fraction = 100
+        soilprofiles["organicmattercontent"] /= to_fraction
+        soilprofiles["lithology"] = utils.determine_lithology_from(soilprofiles)
+
+        return cls(soilmap, soilprofiles)
+
+    def _contains(self, x, y):
+        """
+        Select the soilmap polygons that contain a given point (x, y). This first selects
+        polygons using the spatial index (i.e. bbox contains the point) to speed up the
+        selection process because .contains() is called on less polygons.
+
+        """
+        sel = self.soilmap.cx[x, y]
+        return sel.loc[sel["geometry"].contains(gmt.Point(x, y))]
+
+    def soilcode_at(self, x: int | float, y: int | float) -> str:
+        """
+        Select the soilunit code for a given point (x, y).
+
+        Parameters
+        ----------
+        x, y : int | float
+            Coordinates of the point to select the soilunit code for.
+
+        Returns
+        -------
+        str
+            Soilunit code for the given point (x, y).
+
+        """
+        selection = self._contains(x, y)
+        return selection["soilunit_code"].item()
+
+    def soilprofile_at(self, x: int | float, y: int | float) -> pd.DataFrame:
+        """
+        Select the soilprofile for a given point (x, y).
+
+        Parameters
+        ----------
+        x, y : int | float
+            Coordinates of the point to select the soilprofile for.
+
+        Returns
+        -------
+        pd.DataFrame
+            Soilprofile for the given point (x, y).
+
+        """
+        sel = self._contains(x, y)
+
+        profile = self.soilprofiles.loc[
+            self.soilprofiles["normalsoilprofile_id"]
+            == sel["normalsoilprofile_id"].item()
+        ]
+        return profile.copy()  # Do not return a view
+
+    def load_soilprofile(self, parcel: Parcel) -> pd.DataFrame:
+        """
+        Load the soil profile for a given parcel.
+
+        Parameters
+        ----------
+        parcel : :class:`~parcel2d_modflow.Parcel`
+            `Parcel` for which the soil profile is loaded.
+
+        Returns
+        -------
+        pd.DataFrame
+            Pandas `DataFrame` with soil profile information.
+
+        """
+        if parcel.soilcode is None:
+            profile = self.soilprofile_at(parcel.x, parcel.y)
+        else:
+            profile = self.soilprofiles.loc[
+                self.soilprofiles["soilunit_code"] == parcel.soilcode
+            ]
+        profile = profile.copy()
+        profile.loc[:, "geology"] = utils.lithology_to_geology(
+            profile["lithology"].values
+        )
+        return profile
 
 
 @dataclass(repr=False)
