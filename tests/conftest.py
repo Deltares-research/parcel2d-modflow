@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import geopandas as gpd
@@ -82,6 +83,20 @@ def modflow_parameters():
             "sy_clay (-)": [0.3, 0.3],
         }
     )
+
+
+@pytest.fixture
+def modflow_executable():
+    """
+    Path to the Modflow executable.
+
+    """
+    mf_dir = Path(__file__).parents[1]
+    if sys.platform.startswith("win"):
+        mf_exe = Path(mf_dir / r"mfutil/modflow6.exe")
+    else:
+        mf_exe = Path(mf_dir / r"mfutil/mf6")
+    return str(mf_exe)
 
 
 @pytest.fixture

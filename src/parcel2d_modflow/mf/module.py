@@ -27,8 +27,7 @@ class Runs(NamedTuple):
 
 class Modflow(AbstractModule):
     """
-    Groundwater Module for :class:`~somers.SomersModel` to run a 2D Modflow model for
-    the groundwater component in SOMERS.
+    Groundwater Module to run a 2D Modflow model for the groundwater component Parcels.
 
     Parameters
     ----------
@@ -57,8 +56,14 @@ class Modflow(AbstractModule):
         measure: str = "ref",
         modflow_kwargs: dict[str, Any] = None,
     ):
-        if not any(parameters.columns.str.contains("entry_drain_resistance")) and (
-            measure != "ref"
+        if measure not in {"ref", "ssi", "pssi"}:
+            raise ValueError(
+                f"Measure '{measure}' is not a valid measure. Valid measures are: "
+                "{'ref', 'ssi', 'pssi'}"
+            )
+
+        if (measure != "ref") and not any(
+            parameters.columns.str.contains("entry_drain_resistance")
         ):
             raise ValueError(
                 f"Entry drain resistance is required for the measure: {measure}. "
