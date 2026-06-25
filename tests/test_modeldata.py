@@ -8,6 +8,7 @@ import xarray as xr
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from parcel2d_modflow import components
+from parcel2d_modflow._exceptions import MissingDataError
 from parcel2d_modflow.base import ModelSettings
 from parcel2d_modflow.modeldata import LhmData, Soilmap
 
@@ -20,6 +21,13 @@ def start_date():
 @pytest.fixture
 def end_date():
     return pd.Timestamp("2022-02-01")
+
+
+@pytest.fixture
+def settings(tmp_path, start_date, end_date):
+    return ModelSettings(
+        workdir=tmp_path, start_date=start_date, end_date=end_date, clean_workdir=True
+    )
 
 
 @pytest.fixture
@@ -91,8 +99,8 @@ class TestLhmData:
             lhm_data.load_phreatic_head(parcel, model_settings.date_range)
 
     @pytest.mark.unittest
-    def test_load_aquifer_flux(self, lhm_data, parcel, start_date, end_date):
-        aquifer = lhm_data.load_aquifer_flux(parcel, start_date, end_date)
+    def test_load_aquifer_flux(self, lhm_data, parcel, settings):
+        aquifer = lhm_data.load_aquifer_flux(parcel, settings)
         assert isinstance(aquifer, components.Aquifer)
         assert isinstance(aquifer.start, float)
         assert isinstance(aquifer.series, np.ndarray)
@@ -102,7 +110,7 @@ class TestLhmData:
         with pytest.raises(
             AttributeError, match="Cannot load aquifer flux from LhmData. LhmData.flux"
         ):
-            lhm_data.load_aquifer_flux(parcel, start_date, end_date)
+            lhm_data.load_aquifer_flux(parcel, settings)
 
     @pytest.mark.unittest
     def test_load_confining_layer(self, lhm_data, parcel):
@@ -225,7 +233,7 @@ class TestPresets:  # TODO: Move this to parcel2d-modflow
             f"{presets.__class__.__name__}.recharge does not have daily data for the "
             "required modelling period"
         )
-        with pytest.raises(KeyError, match=expected_error):
+        with pytest.raises(MissingDataError, match=expected_error):
             presets.load_recharge(settings_for_error)
 
     @pytest.mark.unittest
@@ -234,7 +242,7 @@ class TestPresets:  # TODO: Move this to parcel2d-modflow
             f"{presets.__class__.__name__}.aquifer_flux does not have daily data for the "
             "required modelling period"
         )
-        with pytest.raises(KeyError, match=expected_error):
+        with pytest.raises(MissingDataError, match=expected_error):
             presets.load_aquifer_flux(settings_for_error)
 
     @pytest.mark.unittest
@@ -244,7 +252,7 @@ class TestPresets:  # TODO: Move this to parcel2d-modflow
             "required modelling period"
         )
         surface_level = -2.0
-        with pytest.raises(KeyError, match=expected_error):
+        with pytest.raises(MissingDataError, match=expected_error):
             presets.load_ditches(settings_for_error, surface_level)
 
     @pytest.mark.unittest
@@ -253,7 +261,7 @@ class TestPresets:  # TODO: Move this to parcel2d-modflow
             f"{presets.__class__.__name__} does not have daily data for SSI/PSSI in the "
             "required modelling period"
         )
-        with pytest.raises(KeyError, match=expected_error):
+        with pytest.raises(MissingDataError, match=expected_error):
             presets.load_ssi_measure(
                 "ssi", settings_for_error.date_range, 0.7, 4, -2.0, 0.2
             )

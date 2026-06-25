@@ -4,3 +4,7 @@ class Parcel2dModflowError(RuntimeError):
 
 class ValidationError(Parcel2dModflowError):
     """Exception raised for errors in the input validation."""
+
+
+class MissingDataError(Parcel2dModflowError):
+    """Exception raised for missing data errors."""

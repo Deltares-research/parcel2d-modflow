@@ -8,6 +8,7 @@ import pandas as pd
 from shapely import geometry as gmt
 
 from parcel2d_modflow import components, utils
+from parcel2d_modflow._exceptions import MissingDataError
 from parcel2d_modflow.validation import validate_soilmap
 
 if TYPE_CHECKING:
@@ -124,7 +125,7 @@ class LhmData:
         return structure, thin_confining_layer
 
     def load_aquifer_flux(
-        self, parcel: Parcel, start_date: pd.Timestamp, end_date: pd.Timestamp
+        self, parcel: Parcel, settings: ModelSettings
     ) -> components.Aquifer:
         """
         Load LHM aquifer flux data for a given parcel and time period.
@@ -152,11 +153,12 @@ class LhmData:
 
         flux_xy = self.flux.sel(x=parcel.x, y=parcel.y, method="nearest")
 
+        start_date = settings.start_date
         flux_start = flux_xy.sel(
             time=slice(start_date - pd.Timedelta(days=60), start_date)
         )
         flux_start = flux_start.mean().item() / self.cell_area
-        flux = flux_xy.sel(time=slice(start_date, end_date)).values / self.cell_area
+        flux = flux_xy.sel(time=settings.date_range).values / self.cell_area
         return components.Aquifer(flux_start, flux)
 
     def load_recharge(
@@ -380,6 +382,12 @@ class Soilmap:
         return profile
 
 
+# TODO: Figure out how to deal with Presets. So far, has not been used in any Somers work
+# but in the calibration of the Modflow model. Now, it only allows for loading a single
+# time series of aquifer flux, recharge, ditch stage and pssi stage data for a given
+# parcel. Also, these are in separate DataFrames. This is not very flexible and should be
+# improved in the future. Preferably, input data from Presets should be the same as
+# LhmData (Maybe rename this class then).
 @dataclass(repr=False)
 class Presets:
     resistance: int | float = None
@@ -421,19 +429,19 @@ class Presets:
 
         Parameters
         ----------
-        settings : :class:`~somers.base.ModelSettings`
+        settings : :class:`~parcel2d_modflow.base.ModelSettings`
             General settings for the model run containing the date range to load the
             aquifer flux data for.
 
         Returns
         -------
-        :class:`~somers.components.Aquifer`
+        :class:`~parcel2d_modflow.components.Aquifer`
             Aquifer component for Modflow model containing the start aquifer flux for the
             time period and the aquifer flux through time.
 
         Raises
         ------
-        KeyError
+        MissingDataError
             If the aquifer flux data does not contain daily data for the required modelling
             period.
 
@@ -441,7 +449,7 @@ class Presets:
         try:
             series = self.aquifer_flux.loc[settings.date_range].values.flatten()
         except KeyError:
-            raise KeyError(
+            raise MissingDataError(
                 f"{self.__class__.__name__}.aquifer_flux does not have daily data for "
                 f"the required modelling period between {settings.start_date=} and "
                 f"{settings.end_date=}."
@@ -456,7 +464,7 @@ class Presets:
 
         Parameters
         ----------
-        settings : :class:`~somers.base.ModelSettings`
+        settings : :class:`~parcel2d_modflow.base.ModelSettings`
             General settings for the model run containing the date range to load the
             ditch stage data for.
         surface_level : int | float
@@ -464,12 +472,12 @@ class Presets:
 
         Returns
         -------
-        :class:`~somers.components.Ditches`
+        :class:`~parcel2d_modflow.components.Ditches`
             Ditch component for the Modflow model.
 
         Raises
         ------
-        KeyError
+        MissingDataError
             If the ditch stage data does not contain daily data for the required modelling
             period.
 
@@ -477,7 +485,7 @@ class Presets:
         try:
             ditch_stage = self.ditch_stage.loc[settings.date_range]
         except KeyError:
-            raise KeyError(
+            raise MissingDataError(
                 f"{self.__class__.__name__}.ditch_stage does not have daily data for "
                 f"the required modelling period between {settings.start_date=} and "
                 f"{settings.end_date=}."
@@ -505,19 +513,19 @@ class Presets:
 
         Parameters
         ----------
-        settings : :class:`~somers.base.ModelSettings`
+        settings : :class:`~parcel2d_modflow.base.ModelSettings`
             General settings for the model run containing the date range to load the recharge
             data for.
 
         Returns
         -------
-        :class:`~somers.components.Recharge`
+        :class:`~parcel2d_modflow.components.Recharge`
             Recharge component for Modflow model containing the start recharge for the
             time period and the recharge through time.
 
         Raises
         ------
-        KeyError
+        MissingDataError
             If the recharge data does not contain daily data for the required modelling
             period.
 
@@ -525,7 +533,7 @@ class Presets:
         try:
             series = self.recharge.loc[settings.date_range].values.flatten()
         except KeyError:
-            raise KeyError(
+            raise MissingDataError(
                 f"{self.__class__.__name__}.recharge does not have daily data for "
                 f"the required modelling period between {settings.start_date=} and "
                 f"{settings.end_date=}."
@@ -564,12 +572,12 @@ class Presets:
 
         Returns
         -------
-        :class:`~somers.components.SsiMeasure`
+        :class:`~parcel2d_modflow.components.SsiMeasure`
             SSI or PSSI measure component for the Modflow model.
 
         Raises
         ------
-        KeyError
+        MissingDataError
             If the SSI or PSSI stage data does not contain daily data for the required
             modelling period.
 
@@ -580,10 +588,10 @@ class Presets:
             elif measure == "pssi":
                 drain_stage = self.pssi_stage.loc[date_range]
         except KeyError:
-            raise KeyError(
+            raise MissingDataError(
                 f"{self.__class__.__name__} does not have daily data for SSI/PSSI in the "
                 f"required modelling period between {date_range[0]} and {date_range[-1]}. "
-                "Running a `somers.pp2d.Modflow` module with SSI or PSSI measure requires "
+                "Running a `parcel2d_modflow.Modflow` module with SSI or PSSI measure requires "
                 "daily data for the entire modelling period."
             )
         drain_stage = drain_stage.resample(self.ssi_frequency).mean()

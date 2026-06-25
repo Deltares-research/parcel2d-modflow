@@ -389,9 +389,7 @@ class Modflow(AbstractModule):
             if presets.aquifer_flux is not None:
                 self._aquifer = presets.load_aquifer_flux(settings)
             else:
-                self._aquifer = lhm.load_aquifer_flux(
-                    parcel, settings.start_date, settings.end_date
-                )
+                self._aquifer = lhm.load_aquifer_flux(parcel, settings)
         else:
             raise NotImplementedError(
                 "Only 'flux' method for aquifer in a Modflow model is implemented for now."
