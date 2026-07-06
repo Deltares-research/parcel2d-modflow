@@ -8,7 +8,7 @@ from loguru import logger
 
 from parcel2d_modflow import components
 from parcel2d_modflow.base import AbstractModule, ModelSettings, Parcel
-from parcel2d_modflow.mf.model import ModflowModel
+from parcel2d_modflow.mf._model import ModflowModel
 from parcel2d_modflow.modeldata import LhmData, Presets
 from parcel2d_modflow.utils import strip_column_units
 

@@ -31,6 +31,7 @@ pytest-cov = "*"
 ruff = "*"
 pooch = "*"
 pre-commit = "*"
+pyinstrument = "*"
 
 [pypi-dependencies]
 parcel2d_modflow = { path = ".", editable = true }

@@ -4,7 +4,7 @@ from parcel2d_modflow._io.read import (
     read_modflow_parameters,
 )
 from parcel2d_modflow.base import ModelSettings, Parcel
-from parcel2d_modflow.mf.module import Modflow
+from parcel2d_modflow.mf import Modflow
 from parcel2d_modflow.modeldata import LhmData, Presets, Soilmap
 
 __version__ = "0.1.0"

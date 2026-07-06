@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from parcel2d_modflow.mf.budget_file import read_cbc
+from parcel2d_modflow.mf._budget_file import read_cbc
 
 FloatArray = np.ndarray
 

@@ -11,8 +11,8 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from parcel2d_modflow import components
 from parcel2d_modflow.base import ModelSettings, Parcel
-from parcel2d_modflow.mf.model import ModflowModel
-from parcel2d_modflow.mf.module import Modflow
+from parcel2d_modflow.mf._model import ModflowModel
+from parcel2d_modflow.mf._module import Modflow
 from parcel2d_modflow.modeldata import LhmData, Presets
 
 
