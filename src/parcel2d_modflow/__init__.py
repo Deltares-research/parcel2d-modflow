@@ -2,6 +2,7 @@ from parcel2d_modflow._io.read import (
     read_bro_soilmap,
     read_lhm_data,
     read_modflow_parameters,
+    read_parcels,
 )
 from parcel2d_modflow.base import ModelSettings, Parcel
 from parcel2d_modflow.mf import Modflow
@@ -27,4 +28,5 @@ __all__ = [
     "read_bro_soilmap",
     "read_lhm_data",
     "read_modflow_parameters",
+    "read_parcels",
 ]

@@ -4,9 +4,9 @@ import pytest
 import xarray as xr
 from numpy.testing import assert_array_equal
 
+from parcel2d_modflow._exceptions import ValidationError
 from parcel2d_modflow._io import read
 from parcel2d_modflow.modeldata import LhmData, Soilmap
-from parcel2d_modflow.validation import ValidationError
 
 
 @pytest.fixture
@@ -35,6 +35,15 @@ def modflow_parameter_file_wrong_index(tmp_path, modflow_parameters):
 @pytest.fixture
 def invalid_bro_soilmap(testdatadir):
     return testdatadir / "test_invalid_soilmap_v2023.gpkg"
+
+
+@pytest.mark.parametrize("extension", ["parquet", "geoparquet"])
+def test_read_parcels(parcels, extension, tmp_path):
+    file = tmp_path / f"parcels.{extension}"
+    parcels.to_parquet(file)
+    read_parcels = read.read_parcels(file)
+    assert isinstance(read_parcels, gpd.GeoDataFrame)
+    assert read_parcels.equals(parcels)
 
 
 @pytest.mark.unittest

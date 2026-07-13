@@ -70,6 +70,29 @@ def parcel(model_settings, soilmap):
 
 
 @pytest.fixture
+def parcels():
+    """
+    Simple GeoDataFrame with two parcels for testing purposes.
+
+    """
+    return gpd.GeoDataFrame(
+        {
+            "name": ["A", "B"],
+            "x": [1.0, 3.0],
+            "y": [1.0, 1.0],
+            "soil_unit": ["hVb", "hVc"],
+            "soilcode": ["hVb", "hVc"],
+            "width": [2, 2],
+            "surface_level": [-2.0, -2.0],
+            "winter_stage": [-2.5, -2.5],
+            "summer_stage": [-2.4, -2.4],
+            "geometry": [gmt.box(0, 0, 2, 2), gmt.box(2, 0, 4, 2)],
+        },
+        crs=28992,
+    )
+
+
+@pytest.fixture
 def modflow_parameters():
     """
     Simple DataFrame with modflow parameters for two runs.

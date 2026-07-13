@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import xarray as xr
@@ -8,6 +9,30 @@ import xarray as xr
 from parcel2d_modflow import modeldata, utils
 from parcel2d_modflow._io.soilmap import BroSoilmap
 from parcel2d_modflow.validation import validate_modflow_parameters, validate_soilmap
+
+if TYPE_CHECKING:
+    import geopandas as gpd
+
+
+def read_parcels(file: str | Path, **gpd_kwargs) -> gpd.GeoDataFrame:
+    """
+    Read a shapefile or geoparquet file containing parcel data and return a GeoDataFrame.
+
+    Parameters
+    ----------
+    parcels : str | Path
+        Path to the parcel data file.
+    **gpd_kwargs
+        Keyword arguments passed to `geopandas.read_file` or `geopandas.read_parquet`.
+        See the relevant Geopandas documentation for details.
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        GeoDataFrame containing the parcel data.
+
+    """
+    return utils.geopandas_read(file, **gpd_kwargs)
 
 
 def read_lhm_data(
