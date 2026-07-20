@@ -7,6 +7,7 @@ from parcel2d_modflow._io.read import (
 from parcel2d_modflow.base import ModelSettings, Parcel
 from parcel2d_modflow.mf import Modflow
 from parcel2d_modflow.modeldata import GroundwaterData, Presets, Soilmap
+from parcel2d_modflow.run import run_parcels
 
 __version__ = "0.1.0"
 
@@ -29,4 +30,5 @@ __all__ = [
     "read_groundwater_data",
     "read_modflow_parameters",
     "read_parcels",
+    "run_parcels",
 ]

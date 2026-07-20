@@ -32,7 +32,19 @@ def read_parcels(file: str | Path, **gpd_kwargs) -> gpd.GeoDataFrame:
         GeoDataFrame containing the parcel data.
 
     """
-    return utils.geopandas_read(file, **gpd_kwargs)
+    parcels = utils.geopandas_read(file, **gpd_kwargs)
+
+    # We need to ensure that CRS is set to EPSG:28992 (Amersfoort / RD New) because of
+    # the BRO Soilmap and the groundwater data, which are both in this CRS.
+    if parcels.crs is None:
+        parcels.set_crs(epsg=28992, inplace=True)
+    elif parcels.crs != 28992:
+        parcels.to_crs(epsg=28992, inplace=True)
+
+    parcels["x"] = parcels.geometry.centroid.x
+    parcels["y"] = parcels.geometry.centroid.y
+
+    return parcels
 
 
 def read_groundwater_data(

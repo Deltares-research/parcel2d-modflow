@@ -2,7 +2,7 @@ import geopandas as gpd
 import pandas as pd
 import pytest
 import xarray as xr
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from parcel2d_modflow._exceptions import ValidationError
 from parcel2d_modflow._io import read
@@ -44,6 +44,24 @@ def test_read_parcels(parcels, extension, tmp_path):
     read_parcels = read.read_parcels(file)
     assert isinstance(read_parcels, gpd.GeoDataFrame)
     assert read_parcels.equals(parcels)
+    assert read_parcels.crs == 28992
+    assert "x" in read_parcels.columns
+    assert "y" in read_parcels.columns
+
+    # Test when parcels with unknown CRS are read
+    file_no_crs = tmp_path / f"parcels_no_crs.{extension}"
+    parcels.set_crs(None, allow_override=True).to_parquet(file_no_crs)
+    read_parcels_no_crs = read.read_parcels(file_no_crs)
+    assert read_parcels_no_crs.crs == 28992
+    assert read_parcels_no_crs["x"].equals(read_parcels["x"])
+    assert read_parcels_no_crs["y"].equals(read_parcels["y"])
+
+    # Test when parcels with a different CRS are read
+    file_different_crs = tmp_path / f"parcels_different_crs.{extension}"
+    parcels.to_crs(epsg=4326).to_parquet(file_different_crs)
+    read_parcels_different_crs = read.read_parcels(file_different_crs)
+    assert read_parcels_different_crs.crs == 28992
+    # Don't compare x and y coordinates here because they will be different due to reprojection
 
 
 @pytest.mark.unittest
