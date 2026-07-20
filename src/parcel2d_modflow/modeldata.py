@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(repr=False, slots=True)
-class LhmData:
+class GroundwaterData:
     """
     Container for all LHM data that is needed for SOMERS runs.
 

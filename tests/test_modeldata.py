@@ -10,7 +10,7 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 from parcel2d_modflow import components
 from parcel2d_modflow._exceptions import MissingDataError
 from parcel2d_modflow.base import ModelSettings
-from parcel2d_modflow.modeldata import LhmData, Soilmap
+from parcel2d_modflow.modeldata import GroundwaterData, Soilmap
 
 
 @pytest.fixture
@@ -51,15 +51,15 @@ def soilmap_files(tmp_path, soilmap):
 class TestLhmData:
     @pytest.mark.unittest
     def test_lhm_data(self, lhm_data):
-        assert isinstance(lhm_data, LhmData)
+        assert isinstance(lhm_data, GroundwaterData)
         assert isinstance(lhm_data.confining, xr.DataArray | xr.Dataset)
         assert isinstance(lhm_data.flux, xr.DataArray | xr.Dataset)
         assert isinstance(lhm_data.recharge, xr.DataArray | xr.Dataset)
         assert isinstance(lhm_data.head, xr.DataArray | xr.Dataset)
         assert lhm_data.cell_area == 62500
 
-        lhm = LhmData(None, None, None, None)
-        assert isinstance(lhm, LhmData)
+        lhm = GroundwaterData(None, None, None, None)
+        assert isinstance(lhm, GroundwaterData)
         assert lhm.confining is None
         assert lhm.flux is None
         assert lhm.recharge is None

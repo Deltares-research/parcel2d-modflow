@@ -9,7 +9,7 @@ from loguru import logger
 from parcel2d_modflow import components
 from parcel2d_modflow.base import AbstractModule, ModelSettings, Parcel
 from parcel2d_modflow.mf._model import ModflowModel
-from parcel2d_modflow.modeldata import LhmData, Presets
+from parcel2d_modflow.modeldata import GroundwaterData, Presets
 from parcel2d_modflow.utils import strip_column_units
 
 
@@ -164,7 +164,7 @@ class Modflow(AbstractModule):
         self,
         parcel: Parcel,
         settings: ModelSettings,
-        lhm: LhmData,
+        lhm: GroundwaterData,
         presets: Presets = None,
     ) -> None:
         """
@@ -281,7 +281,7 @@ class Modflow(AbstractModule):
     def _discretize_parcel(
         self,
         parcel: Parcel,
-        lhm: LhmData,
+        lhm: GroundwaterData,
         dz_resistance_layer: float = 0.5,
         preset_resistance: int | float = None,
     ) -> None:
@@ -330,7 +330,7 @@ class Modflow(AbstractModule):
     def _load_recharge(
         self,
         parcel: Parcel,
-        lhm: LhmData,
+        lhm: GroundwaterData,
         settings: ModelSettings,
         presets: Presets,
     ) -> None:
@@ -360,7 +360,7 @@ class Modflow(AbstractModule):
     def _load_aquifer(
         self,
         parcel: Parcel,
-        lhm: LhmData,
+        lhm: GroundwaterData,
         settings: ModelSettings,
         presets: Presets,
     ) -> None:

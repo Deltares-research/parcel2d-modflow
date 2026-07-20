@@ -6,7 +6,7 @@ from numpy.testing import assert_array_equal
 
 from parcel2d_modflow._exceptions import ValidationError
 from parcel2d_modflow._io import read
-from parcel2d_modflow.modeldata import LhmData, Soilmap
+from parcel2d_modflow.modeldata import GroundwaterData, Soilmap
 
 
 @pytest.fixture
@@ -47,16 +47,16 @@ def test_read_parcels(parcels, extension, tmp_path):
 
 
 @pytest.mark.unittest
-def test_read_lhm_data(
+def test_read_groundwater_data(
     lhm_confining_nc, lhm_flux_nc, lhm_recharge_nc, lhm_phreatic_head_nc
 ):
-    lhm_data = read.read_lhm_data(
+    lhm_data = read.read_groundwater_data(
         lhm_confining_nc,
         lhm_flux_nc,
         lhm_recharge_nc,
         lhm_phreatic_head_nc,
     )
-    assert isinstance(lhm_data, LhmData)
+    assert isinstance(lhm_data, GroundwaterData)
     assert isinstance(lhm_data.confining, xr.Dataset)
     assert isinstance(lhm_data.flux, xr.DataArray)
     assert isinstance(lhm_data.recharge, xr.DataArray)
@@ -72,8 +72,8 @@ def test_read_lhm_data(
     )
 
     # Test with all inputs None
-    lhm_data = read.read_lhm_data(None, None, None, None)
-    assert isinstance(lhm_data, LhmData)
+    lhm_data = read.read_groundwater_data(None, None, None, None)
+    assert isinstance(lhm_data, GroundwaterData)
     assert lhm_data.confining is None
     assert lhm_data.flux is None
     assert lhm_data.recharge is None

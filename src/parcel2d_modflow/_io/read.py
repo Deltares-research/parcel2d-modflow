@@ -35,31 +35,32 @@ def read_parcels(file: str | Path, **gpd_kwargs) -> gpd.GeoDataFrame:
     return utils.geopandas_read(file, **gpd_kwargs)
 
 
-def read_lhm_data(
+def read_groundwater_data(
     confining_nc: str | Path = None,
     flux_nc: str | Path = None,
     recharge_nc: str | Path = None,
     head_nc: str | Path = None,
-) -> modeldata.LhmData:
+) -> modeldata.GroundwaterData:
     """
-    Read NetCDF files containing confining layer, flux, and recharge data for the required
-    LHM data for SOMERS modelling runs.
+    Read NetCDF files containing confining layer, flux, recharge, and head data for the
+    required groundwater data for modelling runs.
 
     Parameters
     ----------
     confining_nc : str | Path
-        NetCDF file containing LHM confining layer data.
+        NetCDF file containing confining layer data.
     flux_nc : str | Path
-        NetCDF file containing LHM flux data.
+        NetCDF file containing a time-series of flux data.
     recharge_nc : str | Path
-        NetCDF file containing LHM recharge data.
+        NetCDF file containing a time-series of recharge data.
     head_nc : str | Path
-        NetCDF file containing LHM phreatic head data.
+        NetCDF file containing a time-series of phreatic head data.
 
     Returns
     -------
-    :class:`~parcel2d_modflow.modeldata.LhmData`
-        `LhmData` instance containing the confining layer, flux, and recharge data.
+    :class:`~parcel2d_modflow.modeldata.GroundwaterData`
+        `GroundwaterData` instance containing the confining layer, flux, recharge, and head
+        data.
 
     """
     confining = (
@@ -71,7 +72,7 @@ def read_lhm_data(
     recharge = xr.open_dataarray(recharge_nc) if recharge_nc is not None else None
     head = xr.open_dataarray(head_nc) if head_nc is not None else None
 
-    return modeldata.LhmData(confining, flux, recharge, head)
+    return modeldata.GroundwaterData(confining, flux, recharge, head)
 
 
 @validate_soilmap

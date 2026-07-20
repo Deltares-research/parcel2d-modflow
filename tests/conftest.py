@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from shapely import geometry as gmt
 
-from parcel2d_modflow import read_lhm_data
+from parcel2d_modflow import read_groundwater_data
 from parcel2d_modflow.base import ModelSettings, Parcel
 from parcel2d_modflow.modeldata import Presets, Soilmap
 
@@ -205,11 +205,11 @@ def lhm_phreatic_head_nc(testdatadir):
 @pytest.fixture
 def lhm_data(lhm_confining_nc, lhm_flux_nc, lhm_recharge_nc, lhm_phreatic_head_nc):
     """
-    `somers.modeldata.LhmData` fixture that reads LHM confining, flux, and recharge data
-    from the LHM NetCDF fixtures.
+    Fixture that reads LHM confining, flux, and recharge data from the LHM NetCDF fixtures
+    to use as `GroundwaterData`.
 
     """
-    return read_lhm_data(
+    return read_groundwater_data(
         lhm_confining_nc, lhm_flux_nc, lhm_recharge_nc, lhm_phreatic_head_nc
     )
 

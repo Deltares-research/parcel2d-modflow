@@ -1,12 +1,12 @@
 from parcel2d_modflow._io.read import (
     read_bro_soilmap,
-    read_lhm_data,
+    read_groundwater_data,
     read_modflow_parameters,
     read_parcels,
 )
 from parcel2d_modflow.base import ModelSettings, Parcel
 from parcel2d_modflow.mf import Modflow
-from parcel2d_modflow.modeldata import LhmData, Presets, Soilmap
+from parcel2d_modflow.modeldata import GroundwaterData, Presets, Soilmap
 
 __version__ = "0.1.0"
 
@@ -22,11 +22,11 @@ __all__ = [
     "ModelSettings",
     "Parcel",
     "Modflow",
-    "LhmData",
+    "GroundwaterData",
     "Soilmap",
     "Presets",
     "read_bro_soilmap",
-    "read_lhm_data",
+    "read_groundwater_data",
     "read_modflow_parameters",
     "read_parcels",
 ]

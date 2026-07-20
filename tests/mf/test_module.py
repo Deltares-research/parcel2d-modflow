@@ -13,7 +13,7 @@ from parcel2d_modflow import components
 from parcel2d_modflow.base import ModelSettings, Parcel
 from parcel2d_modflow.mf._model import ModflowModel
 from parcel2d_modflow.mf._module import Modflow
-from parcel2d_modflow.modeldata import LhmData, Presets
+from parcel2d_modflow.modeldata import GroundwaterData, Presets
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ def initialized_modflow_with_presets(
     modflow_module: Modflow,
     parcel: Parcel,
     model_settings: ModelSettings,
-    lhm_data: LhmData,
+    lhm_data: GroundwaterData,
     presets: Presets,
 ):
     """
@@ -162,7 +162,7 @@ class TestModflow:
         self,
         modflow_module: Modflow,
         parcel: Parcel,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
         empty_presets: Presets,
     ):
         modflow_module._discretize_parcel(
@@ -204,7 +204,7 @@ class TestModflow:
         self,
         modflow_module: Modflow,
         parcel: Parcel,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
         presets: Presets,
     ):
         modflow_module._discretize_parcel(
@@ -246,7 +246,7 @@ class TestModflow:
         self,
         modflow_module: Modflow,
         parcel: Parcel,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
         model_settings: ModelSettings,
         empty_presets: Presets,
     ):
@@ -262,7 +262,7 @@ class TestModflow:
         self,
         modflow_module: Modflow,
         parcel: Parcel,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
         model_settings: ModelSettings,
         presets: Presets,
     ):
@@ -278,7 +278,7 @@ class TestModflow:
         self,
         modflow_module: Modflow,
         parcel: Parcel,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
         model_settings: ModelSettings,
         empty_presets: Presets,
     ):
@@ -294,7 +294,7 @@ class TestModflow:
         self,
         modflow_module: Modflow,
         parcel: Parcel,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
         model_settings: ModelSettings,
         presets: Presets,
     ):
@@ -435,7 +435,7 @@ class TestModflow:
         modflow_module: Modflow,
         parcel: Parcel,
         model_settings: ModelSettings,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
     ):
         settings = model_settings.model_copy(update={"add_trenches": True})
         modflow_module.initialize(parcel, settings, lhm_data)
@@ -458,7 +458,7 @@ class TestModflow:
         modflow_module: Modflow,
         parcel: Parcel,
         model_settings: ModelSettings,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
         presets: Presets,
     ):
         modflow_module.initialize(parcel, model_settings, lhm_data, presets)
@@ -879,7 +879,7 @@ class TestModflow:
         modflow_executable: str,
         parcel: Parcel,
         model_settings: ModelSettings,
-        lhm_data: LhmData,
+        lhm_data: GroundwaterData,
     ):
         mf = Modflow(modflow_parameters, "flux", modflow_executable)
         mf.initialize(parcel, model_settings, lhm_data)
