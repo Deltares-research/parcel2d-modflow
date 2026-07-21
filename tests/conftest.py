@@ -6,9 +6,8 @@ import pandas as pd
 import pytest
 from shapely import geometry as gmt
 
-from parcel2d_modflow import read_groundwater_data
+from parcel2d_modflow import config, read_groundwater_data
 from parcel2d_modflow.base import Parcel
-from parcel2d_modflow.config import ModelSettings
 from parcel2d_modflow.modeldata import Presets, Soilmap
 
 
@@ -19,7 +18,7 @@ def testdatadir():
 
 @pytest.fixture
 def model_settings(tmp_path):
-    return ModelSettings(
+    return config.ModelSettings(
         workdir=tmp_path,
         start_date="2022-01-01",
         end_date="2022-01-07",
@@ -216,12 +215,32 @@ def lhm_data(lhm_confining_nc, lhm_flux_nc, lhm_recharge_nc, lhm_phreatic_head_n
 
 
 @pytest.fixture
-def simple_bro_soilmap():
+def simple_bro_soilmap(testdatadir):
     """
     Small extraction of 4 soilunits from the BRO soilmap geopackage.
 
     """
-    return Path(__file__).parent / r"data/test_soilmap_v2023.gpkg"
+    return testdatadir / r"test_soilmap_v2023.gpkg"
+
+
+@pytest.fixture
+def config_instance(testdatadir, model_settings, modflow_executable, tmp_path):
+    return config.Config(
+        settings=model_settings,
+        modflow_settings=config.ModflowSettings(
+            modflow_executable=modflow_executable,
+            parameters=testdatadir / "test_parameters.csv",
+        ),
+        run_settings=config.RunSettings(),
+        data=config.InputData(
+            parcels=testdatadir / "test_parcels.geoparquet",
+            confining_nc=testdatadir / "lhm_confining.nc",
+            flux_nc=testdatadir / "lhm_flux.nc",
+            recharge_nc=testdatadir / "lhm_recharge.nc",
+            soilmap_gpkg=testdatadir / "test_soilmap_v2023.gpkg",
+        ),
+        output=config.OutputSettings(directory=tmp_path / "output"),
+    )
 
 
 def _create_preset(data, date_range, name):

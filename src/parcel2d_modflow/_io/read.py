@@ -12,6 +12,7 @@ from parcel2d_modflow import modeldata, utils
 from parcel2d_modflow._exceptions import ConfigError
 from parcel2d_modflow._io.soilmap import BroSoilmap
 from parcel2d_modflow.config import Config
+from parcel2d_modflow.modeldata import ModelData
 from parcel2d_modflow.validation import validate_modflow_parameters, validate_soilmap
 
 if TYPE_CHECKING:
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 
 def read_config(config_file: str | Path) -> Config:
     """
-    Read a TOML configuration file containing all settings and inputs for a SOMERS monitoring
+    Read a TOML configuration file containing all settings and inputs for a modelling
     run. TODO: add explanation where to find all configurable options in the TOML.
 
     Parameters
@@ -31,8 +32,8 @@ def read_config(config_file: str | Path) -> Config:
 
     Returns
     -------
-    Config
-        Configuration object containing all settings and inputs.
+    :class:`~parcel2d_modflow.config.Config`
+        Configuration istance containing all settings and inputs.
 
     """
 
@@ -53,6 +54,32 @@ def read_config(config_file: str | Path) -> Config:
         return Config(**_normalize_keys(toml))
     except ValidationError as e:
         raise ConfigError(f"Invalid configuration file: {e}")
+
+
+def read_data_from_config(config: Config) -> ModelData:
+    """
+    Read all input data for a modelling run from the configuration object.
+
+    Parameters
+    ----------
+    config : :class:`~parcel2d_modflow.config.Config`
+        Configuration instance containing all input data for a modelling run.
+
+    Returns
+    -------
+    :class:`~parcel2d_modflow.modeldata.ModelData`
+        ModelData instance containing all input data for a modelling run.
+
+    """
+    parcels = read_parcels(config.data.parcels)
+    gw_data = read_groundwater_data(
+        confining_nc=config.data.confining_nc,
+        flux_nc=config.data.flux_nc,
+        recharge_nc=config.data.recharge_nc,
+    )
+    soilmap = read_bro_soilmap(config.data.soilmap_gpkg)
+
+    return ModelData(parcels, gw_data, soilmap)
 
 
 def read_parcels(file: str | Path, **gpd_kwargs) -> gpd.GeoDataFrame:

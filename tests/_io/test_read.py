@@ -7,7 +7,7 @@ from numpy.testing import assert_array_equal
 from parcel2d_modflow import config
 from parcel2d_modflow._exceptions import ValidationError
 from parcel2d_modflow._io import read
-from parcel2d_modflow.modeldata import GroundwaterData, Soilmap
+from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Soilmap
 
 
 @pytest.fixture
@@ -78,6 +78,15 @@ def test_read_parcels(parcels, extension, tmp_path):
     read_parcels_different_crs = read.read_parcels(file_different_crs)
     assert read_parcels_different_crs.crs == 28992
     # Don't compare x and y coordinates here because they will be different due to reprojection
+
+
+@pytest.mark.unittest
+def test_read_data_from_config(config_instance):
+    model_data = read.read_data_from_config(config_instance)
+    assert isinstance(model_data, ModelData)
+    assert isinstance(model_data.parcels, gpd.GeoDataFrame)
+    assert isinstance(model_data.groundwater, GroundwaterData)
+    assert isinstance(model_data.soilmap, Soilmap)
 
 
 @pytest.mark.unittest

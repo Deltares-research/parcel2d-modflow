@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -19,6 +19,26 @@ if TYPE_CHECKING:
 
     from parcel2d_modflow.base import Parcel
     from parcel2d_modflow.config import ModelSettings
+
+
+class ModelData(NamedTuple):
+    """
+    Container for all data that is needed for modelling runs.
+
+    Parameters
+    ----------
+    parcels : gpd.GeoDataFrame
+        GeoDataFrame with all parcels that are modelled.
+    groundwater : :class:`~parcel2d_modflow.modeldata.GroundwaterData`
+        Container for all groundwater data that is needed for modelling runs.
+    soilmap : :class:`~parcel2d_modflow.modeldata.Soilmap`
+        Data container to retrieve all soilmap information (soilcodes and soilprofiles)
+        for individual parcels that is needed for modelling runs.
+    """
+
+    parcels: gpd.GeoDataFrame
+    groundwater: GroundwaterData
+    soilmap: Soilmap
 
 
 @dataclass(repr=False, slots=True)
