@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -213,6 +213,7 @@ class ModflowSettings(BaseModel):
     parameters: Path
     aquifer_method: Literal["flux"] = "flux"
     measure: Literal["ref", "ssi", "pssi"] = "ref"
+    modflow_kwargs: dict[str, Any] = Field(default_factory=dict)
 
 
 class InputData(BaseModel):

@@ -87,6 +87,7 @@ def test_read_data_from_config(config_instance):
     assert isinstance(model_data.parcels, gpd.GeoDataFrame)
     assert isinstance(model_data.groundwater, GroundwaterData)
     assert isinstance(model_data.soilmap, Soilmap)
+    assert isinstance(model_data.parameters, pd.DataFrame)
 
 
 @pytest.mark.unittest

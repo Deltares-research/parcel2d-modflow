@@ -78,8 +78,9 @@ def read_data_from_config(config: Config) -> ModelData:
         recharge_nc=config.data.recharge_nc,
     )
     soilmap = read_bro_soilmap(config.data.soilmap_gpkg)
+    parameters = read_modflow_parameters(config.modflow_settings.parameters)
 
-    return ModelData(parcels, gw_data, soilmap)
+    return ModelData(parcels, gw_data, soilmap, parameters)
 
 
 def read_parcels(file: str | Path, **gpd_kwargs) -> gpd.GeoDataFrame:

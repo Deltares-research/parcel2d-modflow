@@ -22,6 +22,6 @@ recharge-nc = './data/lhm_recharge.nc'
 soilmap-gpkg = './data/soilmap.gpkg'
 
 [output]
-directory = './output'
+directory = './output' # Directory where output files will be written
 format = "geoparquet"
 prefix = "batch" # Each batch from a single process will be written to a separate file with this prefix
