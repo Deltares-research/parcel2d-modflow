@@ -1,0 +1,20 @@
+[settings]
+workdir = 'example'
+start-date = 2020-01-01 # Date in YYYY-MM-DD format
+end-date = 2020-12-31 # Date in YYYY-MM-DD format
+
+# Missing [modflow-settings] section, which is required for the configuration to be valid.
+
+[run-settings]
+multiprocessing = true
+batch-size = 100 # Run the model in batches of this many parcels at a time
+multiprocess-scale = 1.0 # Fraction of available CPU cores to use for multiprocessing (0.0 - 1.0)
+
+[data]
+parcels = './data/parcels.geoparquet'
+# Missing several required data files
+
+[output]
+directory = './output'
+format = "geoparquet"
+prefix = "batch" # Each batch from a single process will be written to a separate file with this prefix

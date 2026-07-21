@@ -1,17 +1,58 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 import xarray as xr
+from pydantic import ValidationError
 
 from parcel2d_modflow import modeldata, utils
+from parcel2d_modflow._exceptions import ConfigError
 from parcel2d_modflow._io.soilmap import BroSoilmap
+from parcel2d_modflow.config import Config
 from parcel2d_modflow.validation import validate_modflow_parameters, validate_soilmap
 
 if TYPE_CHECKING:
     import geopandas as gpd
+
+
+def read_config(config_file: str | Path) -> Config:
+    """
+    Read a TOML configuration file containing all settings and inputs for a SOMERS monitoring
+    run. TODO: add explanation where to find all configurable options in the TOML.
+
+    Parameters
+    ----------
+    config_file : str | Path
+        Path to the TOML configuration file containing all settings, inputs and output for
+        a modelling run.
+
+    Returns
+    -------
+    Config
+        Configuration object containing all settings and inputs.
+
+    """
+
+    def _normalize_keys(obj: dict) -> dict:
+        """
+        Recursively replace dashes with underscores in dictionary keys of a parsed TOML
+        file.
+
+        """
+        if isinstance(obj, dict):
+            return {k.replace("-", "_"): _normalize_keys(v) for k, v in obj.items()}
+        return obj
+
+    with open(config_file, "rb") as f:
+        toml = tomllib.load(f)
+
+    try:
+        return Config(**_normalize_keys(toml))
+    except ValidationError as e:
+        raise ConfigError(f"Invalid configuration file: {e}")
 
 
 def read_parcels(file: str | Path, **gpd_kwargs) -> gpd.GeoDataFrame:
@@ -149,3 +190,9 @@ def read_modflow_parameters(file: str | Path, **pd_kwargs) -> pd.DataFrame:
 
     """
     return pd.read_csv(file, **pd_kwargs)
+
+
+if __name__ == "__main__":
+    config_file = r"c:\src\somers\parcel2d-modflow\dev\config_parcel2d.toml"
+    config = read_config(config_file)
+    print()

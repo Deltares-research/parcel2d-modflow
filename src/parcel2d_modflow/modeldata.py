@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     import geopandas as gpd
     import xarray as xr
 
-    from parcel2d_modflow.base import ModelSettings, Parcel
+    from parcel2d_modflow.base import Parcel
+    from parcel2d_modflow.config import ModelSettings
 
 
 @dataclass(repr=False, slots=True)

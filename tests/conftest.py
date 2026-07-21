@@ -7,7 +7,8 @@ import pytest
 from shapely import geometry as gmt
 
 from parcel2d_modflow import read_groundwater_data
-from parcel2d_modflow.base import ModelSettings, Parcel
+from parcel2d_modflow.base import Parcel
+from parcel2d_modflow.config import ModelSettings
 from parcel2d_modflow.modeldata import Presets, Soilmap
 
 

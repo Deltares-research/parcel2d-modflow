@@ -4,7 +4,8 @@ from parcel2d_modflow._io.read import (
     read_modflow_parameters,
     read_parcels,
 )
-from parcel2d_modflow.base import ModelSettings, Parcel
+from parcel2d_modflow.base import Parcel
+from parcel2d_modflow.config import ModelSettings
 from parcel2d_modflow.mf import Modflow
 from parcel2d_modflow.modeldata import GroundwaterData, Presets, Soilmap
 from parcel2d_modflow.run import run_parcels

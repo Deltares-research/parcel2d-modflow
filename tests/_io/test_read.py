@@ -2,8 +2,9 @@ import geopandas as gpd
 import pandas as pd
 import pytest
 import xarray as xr
-from numpy.testing import assert_array_almost_equal, assert_array_equal
+from numpy.testing import assert_array_equal
 
+from parcel2d_modflow import config
 from parcel2d_modflow._exceptions import ValidationError
 from parcel2d_modflow._io import read
 from parcel2d_modflow.modeldata import GroundwaterData, Soilmap
@@ -35,6 +36,21 @@ def modflow_parameter_file_wrong_index(tmp_path, modflow_parameters):
 @pytest.fixture
 def invalid_bro_soilmap(testdatadir):
     return testdatadir / "test_invalid_soilmap_v2023.gpkg"
+
+
+@pytest.mark.unittest
+def test_read_config(testdatadir):
+    config_file = testdatadir / "config_parcel2d.toml"
+    c = read.read_config(config_file)
+    assert isinstance(c, config.Config)
+    assert isinstance(c.settings, config.ModelSettings)
+    assert isinstance(c.modflow_settings, config.ModflowSettings)
+    assert isinstance(c.data, config.InputData)
+    assert isinstance(c.output, config.OutputSettings)
+    assert isinstance(c.run_settings, config.RunSettings)
+
+    with pytest.raises(ValidationError):
+        read.read_config(testdatadir / "invalid_config.toml")
 
 
 @pytest.mark.parametrize("extension", ["parquet", "geoparquet"])
