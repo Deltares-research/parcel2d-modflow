@@ -18,6 +18,17 @@ def init_logger(sink=sys.stdout, **kwargs):
         See Loguru's documentation for more details:
         https://loguru.readthedocs.io/en/stable/api/logger.html.
 
+    Examples
+    --------
+    Initialize the logger to log to the terminal with INFO level and a custom format:
+
+    >>> init_logger(level="INFO", format="{time} {level} {message}")
+
+    Initialize the logger to log to a file with DEBUG level:
+
+    >>> init_logger(sink="app.log", level="DEBUG", format="{time} {level} {message}")
+
+
     """
     logger.remove()  # Remove the Loguru's default logger
     logger.add(sink, **kwargs)

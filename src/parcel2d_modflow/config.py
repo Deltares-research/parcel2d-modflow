@@ -77,6 +77,9 @@ class ModelSettings(BaseModel):
         at the top of the aquifer. The default is 0.5.
     save_flopy : bool, optional
         Save the `Flopy` model files in the working directory. The default is False.
+    save_phreatic_head : bool, optional
+        Save the phreatic head results in a NetCDF file in the working directory. The
+        default is False.
     clean_workdir : bool, optional
         Clean the working directory after running the model. The default is False. You
         may want to use this when running many parcels to avoid filling up the disk space
@@ -111,6 +114,7 @@ class ModelSettings(BaseModel):
     dx: int | float = Field(default=0.5, gt=0.0)
     dz_resistance_layer: int | float = Field(default=0.5, gt=0.0)
     save_flopy: bool = False
+    save_phreatic_head: bool = False
     clean_workdir: bool = False
 
     @field_validator("workdir", mode="before")
