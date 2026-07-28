@@ -48,8 +48,9 @@ def _init_worker(data: ModelData, config: Config):
 
 def run_config(config: Config, *, write_batches: bool = False):
     logger.info(
-        f"Run model: multiprocessing={config.run_settings.multiprocessing}, "
-        f"log_level={config.run_settings.log_level}"
+        "Run model: multiprocessing={multiprocessing}, log_level={log_level}",
+        multiprocessing=config.run_settings.multiprocessing,
+        log_level=config.run_settings.log_level,
     )
 
     if config.run_settings.multiprocessing:
@@ -82,7 +83,9 @@ def _run_parallel(config: Config, write_batches: bool):
     results: list[pd.DataFrame] = []
 
     logger.info(
-        f"Starting runs for {len(data.parcels)} parcels with {num_processes} parallel processes"
+        "Starting runs for {n_parcels} parcels with {num_processes} parallel processes",
+        n_parcels=len(data.parcels),
+        num_processes=num_processes,
     )
     context = multiprocessing.get_context("spawn")
     with ProcessPoolExecutor(
@@ -116,8 +119,14 @@ def _run_batch(indices: list[int], log_level: str):
         raise RuntimeError(
             "Worker data and settings have not been initialized. Cannot run batch."
         )
+    init_logger(level=log_level)
 
-    logger.info(f"[PID {os.getpid()}] Processing indices: {indices[0]}...{indices[-1]}")
+    logger.info(
+        "[PID {pid}] Processing indices: {start}...{end}",
+        pid=os.getpid(),
+        start=indices[0],
+        end=indices[-1],
+    )
     parcels = _WORKER_DATA.parcels.loc[indices]
 
     return run_parcels(
@@ -132,7 +141,7 @@ def _run_batch(indices: list[int], log_level: str):
 def _run_linear(config: Config):
     data = read_data_from_config(config)
 
-    logger.info(f"Starting run for {len(data.parcels)} parcels")
+    logger.info("Starting run for {n_parcels} parcels", n_parcels=len(data.parcels))
 
     modflow_kwargs = config.modflow_settings.model_dump(exclude="parameters")
     modflow_kwargs["parameters"] = data.parameters
@@ -181,22 +190,23 @@ def run_parcels(
         module.initialize(parcel, settings, gw_data)
 
         try:
-            logger.debug(f"Run Parcel ID: {parcel.name}, Soilcode: {parcel.soilcode}")
-            ph = module.run(parcel, settings)
+            phreatic_head = module.run(parcel, settings)
         except Exception:
             logger.exception(
-                f"Error processing Parcel ID: {parcel.name}, Soilcode: {parcel.soilcode}"
+                "Error processing Parcel ID: {name}, Soilcode: {soilcode}",
+                name=parcel.name,
+                soilcode=parcel.soilcode,
             )
             model_results.append(np.full((len(years), np.nan)))
         else:
             if settings.save_phreatic_head:
                 name_soilcode = f"{parcel.name}_{parcel.soilcode}"
-                ph.to_netcdf(
+                phreatic_head.to_netcdf(
                     settings.workdir
                     / f"{name_soilcode}/phreatic_head_{name_soilcode}.nc"
                 )
 
-            lg3 = calculate_lg3(ph)
+            lg3 = calculate_lg3(phreatic_head)
             model_results.append(lg3.mean(dim="runs").values)
         finally:
             module.reset()

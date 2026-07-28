@@ -140,16 +140,21 @@ def test_run_settings():
     assert settings.multiprocessing is True
     assert settings.batch_size == 100
     assert settings.multiprocess_scale == 1.0
+    assert settings.log_level == "INFO"
 
     settings = config.RunSettings(
-        multiprocessing=False, batch_size=50, multiprocess_scale=0.5
+        multiprocessing=False, batch_size=50, multiprocess_scale=0.5, log_level="DEBUG"
     )
     assert settings.multiprocessing is False
     assert settings.batch_size == 50
     assert settings.multiprocess_scale == 0.5
+    assert settings.log_level == "DEBUG"
 
     with pytest.raises(ValidationError):
         config.RunSettings(multiprocess_scale=1.5)
+
+    with pytest.raises(ValidationError):
+        config.RunSettings(log_level="info")
 
 
 @pytest.mark.unittest

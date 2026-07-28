@@ -248,3 +248,4 @@ class RunSettings(BaseModel):
     multiprocessing: bool = True
     batch_size: int = 100
     multiprocess_scale: float = Field(default=1.0, ge=0.0, le=1.0)
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

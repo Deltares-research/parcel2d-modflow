@@ -235,13 +235,27 @@ class Modflow(AbstractModule):
             np.nan,
         )  # Pre-allocate array for phreatic head output of all runs with dimensions (runs, time, x) and fill with NaN values
 
-        model = self.create_modflow_model(parcel, settings, "SIMPLE")
+        complexity = "SIMPLE"
+        logger.debug(
+            "Run Parcel ID: {name}, Soilcode: {soilcode}, complexity: {complexity}",
+            name=parcel.name,
+            soilcode=parcel.soilcode,
+            complexity=complexity,
+        )
+        model = self.create_modflow_model(parcel, settings, complexity)
         phreatic_head, success_simple, failure_simple = self.run_modflow_model(
             model, self.parameters, phreatic_head, settings.start_date
         )
 
         if failure_simple:
-            model = self.create_modflow_model(parcel, settings, "COMPLEX")
+            complexity = "COMPLEX"
+            logger.debug(
+                "Run Parcel ID: {name}, Soilcode: {soilcode}, complexity: {complexity}",
+                name=parcel.name,
+                soilcode=parcel.soilcode,
+                complexity=complexity,
+            )
+            model = self.create_modflow_model(parcel, settings, complexity)
             phreatic_head, success_complex, failure_complex = self.run_modflow_model(
                 model,
                 self.parameters.loc[failure_simple],
@@ -534,7 +548,7 @@ class Modflow(AbstractModule):
         mask_holocene = self.discretization.geology == 1
         for params in parameters.itertuples():
             runnr = params.Index
-            logger.debug(f"Run {runnr} with parameters: {params}")
+            logger.debug("Run parameters: {params}", params=params)
 
             kh_top = np.repeat(params.kh, sum(mask_holocene))
             kh = np.concatenate((kh_top, self.discretization.kvalues))
@@ -562,9 +576,9 @@ class Modflow(AbstractModule):
                 model.run()
                 ph_run = model.get_phreatic_head()
             except ValueError:
+                logger.debug("Run failed with parameters: {params}", params=params)
                 failure_runs.append(runnr)
             else:
-                logger.debug(f"Run {runnr} succeeded.")
                 result[runnr, :, :] = ph_run.sel(time=slice(start_date, None)).values
                 success_runs.append(runnr)
 
