@@ -89,7 +89,7 @@ def _run_parallel(config: Config, write_output: bool):
                 logger.exception("Error processing batch")
             else:
                 logger.info(f"Processed batch of {len(processed_batch)} parcels")
-                results.append(processed_batch)
+                results.extend(processed_batch)
 
     results = pd.concat(results)
 
@@ -178,9 +178,9 @@ def run_parcels(
                     / f"{name_soilcode}/phreatic_head_{name_soilcode}.nc"
                 )
             # Aggregate to LG3 results
-            calculate_lg3(ph)
+            lg3 = calculate_lg3(ph)
             indexes.append(idx)
-            model_results.append(ph)
+            model_results.append(lg3)
         finally:
             module.reset()
 
