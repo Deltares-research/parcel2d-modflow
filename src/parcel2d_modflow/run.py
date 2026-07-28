@@ -7,12 +7,15 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pandas as pd
 from loguru import logger
 
-from parcel2d_modflow._io.read import read_data_from_config
 from parcel2d_modflow.aggregation import calculate_lg3
 from parcel2d_modflow.base import Parcel
+from parcel2d_modflow.io.read import read_data_from_config
+from parcel2d_modflow.io.write import write_batch
+from parcel2d_modflow.logging import init_logger
 from parcel2d_modflow.mf import Modflow
 from parcel2d_modflow.validation import validate_parcels
 
@@ -43,11 +46,16 @@ def _init_worker(data: ModelData, config: Config):
     _WORKER_MODFLOW_KWARGS["parameters"] = data.parameters
 
 
-def run_config(config: Config, *, write_output: bool = False):
+def run_config(config: Config, *, write_batches: bool = False):
+    logger.info(
+        f"Run model: multiprocessing={config.run_settings.multiprocessing}, "
+        f"log_level={config.run_settings.log_level}"
+    )
+
     if config.run_settings.multiprocessing:
-        results = _run_parallel(config, write_output=write_output)
+        results = _run_parallel(config, write_batches=write_batches)
     else:
-        results = _run_linear(config, write_output=write_output)
+        results = _run_linear(config)
 
     return results
 
@@ -61,7 +69,10 @@ def _create_batches(size: int, parcels: gpd.GeoDataFrame):
         yield list(batch)
 
 
-def _run_parallel(config: Config, write_output: bool):
+def _run_parallel(config: Config, write_batches: bool):
+    if write_batches:
+        config.output.directory.mkdir(parents=True, exist_ok=True)
+
     data = read_data_from_config(config)
 
     num_processes = int(
@@ -70,7 +81,9 @@ def _run_parallel(config: Config, write_output: bool):
 
     results: list[pd.DataFrame] = []
 
-    logger.info(f"Starting SOMERS runs with {num_processes} parallel processes")
+    logger.info(
+        f"Starting runs for {len(data.parcels)} parcels with {num_processes} parallel processes"
+    )
     context = multiprocessing.get_context("spawn")
     with ProcessPoolExecutor(
         max_workers=num_processes,
@@ -79,24 +92,26 @@ def _run_parallel(config: Config, write_output: bool):
         initargs=(data, config),
     ) as exc:
         tasks = [
-            exc.submit(_run_batch, b)
+            exc.submit(_run_batch, b, config.run_settings.log_level)
             for b in _create_batches(config.run_settings.batch_size, data.parcels)
         ]
-        for task in as_completed(tasks):
+        for ii, task in enumerate(as_completed(tasks), start=1):
             try:
                 processed_batch = task.result()
             except Exception:
                 logger.exception("Error processing batch")
             else:
-                logger.info(f"Processed batch of {len(processed_batch)} parcels")
                 results.append(processed_batch)
+
+                if write_batches:
+                    write_batch(processed_batch, ii, config.output)
 
     results = pd.concat(results)
 
-    return results
+    return results.sort_index()
 
 
-def _run_batch(indices: list[int]):
+def _run_batch(indices: list[int], log_level: str):
     if _WORKER_DATA is None or _WORKER_SETTINGS is None:
         raise RuntimeError(
             "Worker data and settings have not been initialized. Cannot run batch."
@@ -114,8 +129,10 @@ def _run_batch(indices: list[int]):
     )
 
 
-def _run_linear(config: Config, write_output: bool):
+def _run_linear(config: Config):
     data = read_data_from_config(config)
+
+    logger.info(f"Starting run for {len(data.parcels)} parcels")
 
     modflow_kwargs = config.modflow_settings.model_dump(exclude="parameters")
     modflow_kwargs["parameters"] = data.parameters
@@ -154,13 +171,13 @@ def run_parcels(
     soilmap: Soilmap,
     modflow_kwargs: dict[str, Any],
 ):
-    prepared_parcels = _prepare_parcels(parcels, settings, soilmap)
-
-    indexes = []
-    model_results = []
-
     module = Modflow(**modflow_kwargs)
-    for idx, parcel in zip(parcels.index, prepared_parcels):
+
+    years = settings.date_range.year.unique()
+
+    model_results = []
+    prepared_parcels = _prepare_parcels(parcels, settings, soilmap)
+    for parcel in prepared_parcels:
         module.initialize(parcel, settings, gw_data)
 
         try:
@@ -170,6 +187,7 @@ def run_parcels(
             logger.exception(
                 f"Error processing Parcel ID: {parcel.name}, Soilcode: {parcel.soilcode}"
             )
+            model_results.append(np.full((len(years), np.nan)))
         else:
             if settings.save_phreatic_head:
                 name_soilcode = f"{parcel.name}_{parcel.soilcode}"
@@ -177,11 +195,12 @@ def run_parcels(
                     settings.workdir
                     / f"{name_soilcode}/phreatic_head_{name_soilcode}.nc"
                 )
-            # Aggregate to LG3 results
-            calculate_lg3(ph)
-            indexes.append(idx)
-            model_results.append(ph)
+
+            lg3 = calculate_lg3(ph)
+            model_results.append(lg3.mean(dim="runs").values)
         finally:
             module.reset()
 
-    return model_results
+    model_results = pd.DataFrame(model_results, columns=years, index=parcels.index)
+
+    return pd.concat([parcels[["name", "soilcode"]], model_results], axis=1)
