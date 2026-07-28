@@ -1,3 +1,3 @@
-from parcel2d_modflow.mf._module import Modflow
+from parcel2d_modflow.mf.module import Modflow
 
 __all__ = ["Modflow"]

@@ -3,7 +3,7 @@ from functools import wraps
 
 import pandas as pd
 
-from parcel2d_modflow._exceptions import ValidationError
+from parcel2d_modflow.exceptions import ValidationError
 from parcel2d_modflow.validation import helpers
 
 

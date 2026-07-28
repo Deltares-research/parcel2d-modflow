@@ -9,9 +9,9 @@ import xarray as xr
 from pydantic import ValidationError
 
 from parcel2d_modflow import modeldata, utils
-from parcel2d_modflow._exceptions import ConfigError
-from parcel2d_modflow._io.soilmap import BroSoilmap
 from parcel2d_modflow.config import Config
+from parcel2d_modflow.exceptions import ConfigError
+from parcel2d_modflow.io.soilmap import BroSoilmap
 from parcel2d_modflow.modeldata import ModelData
 from parcel2d_modflow.validation import validate_modflow_parameters, validate_soilmap
 

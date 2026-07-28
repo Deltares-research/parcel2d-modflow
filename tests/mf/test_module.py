@@ -13,7 +13,7 @@ from parcel2d_modflow import components
 from parcel2d_modflow.base import Parcel
 from parcel2d_modflow.config import ModelSettings
 from parcel2d_modflow.mf._model import ModflowModel
-from parcel2d_modflow.mf._module import Modflow
+from parcel2d_modflow.mf.module import Modflow
 from parcel2d_modflow.modeldata import GroundwaterData, Presets
 
 

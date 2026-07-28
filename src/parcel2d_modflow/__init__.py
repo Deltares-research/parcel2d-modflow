@@ -1,12 +1,12 @@
-from parcel2d_modflow._io.read import (
+from parcel2d_modflow.base import Parcel
+from parcel2d_modflow.config import ModelSettings
+from parcel2d_modflow.io.read import (
     read_bro_soilmap,
     read_config,
     read_groundwater_data,
     read_modflow_parameters,
     read_parcels,
 )
-from parcel2d_modflow.base import Parcel
-from parcel2d_modflow.config import ModelSettings
 from parcel2d_modflow.logging import init_logger
 from parcel2d_modflow.mf import Modflow
 from parcel2d_modflow.modeldata import GroundwaterData, Presets, Soilmap

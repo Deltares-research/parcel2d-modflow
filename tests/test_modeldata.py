@@ -8,8 +8,8 @@ import xarray as xr
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from parcel2d_modflow import components
-from parcel2d_modflow._exceptions import MissingDataError
 from parcel2d_modflow.config import ModelSettings
+from parcel2d_modflow.exceptions import MissingDataError
 from parcel2d_modflow.modeldata import GroundwaterData, Soilmap
 
 

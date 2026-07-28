@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_array_equal
 
-from parcel2d_modflow._io.soilmap import BroSoilmap
+from parcel2d_modflow.io.soilmap import BroSoilmap
 
 
 class TestBroSoilmap:

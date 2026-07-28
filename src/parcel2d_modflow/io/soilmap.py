@@ -4,7 +4,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-from parcel2d_modflow._io.geopackage import Geopackage
+from parcel2d_modflow.io.geopackage import Geopackage
 
 
 class SoilmapLayers(StrEnum):

@@ -8,7 +8,7 @@ import pandas as pd
 from shapely import geometry as gmt
 
 from parcel2d_modflow import components, utils
-from parcel2d_modflow._exceptions import MissingDataError
+from parcel2d_modflow.exceptions import MissingDataError
 from parcel2d_modflow.validation import validate_soilmap
 
 if TYPE_CHECKING:

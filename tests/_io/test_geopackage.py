@@ -5,7 +5,7 @@ import pytest
 from numpy.testing import assert_array_equal
 from pandas.testing import assert_series_equal
 
-from parcel2d_modflow._io.geopackage import Geopackage
+from parcel2d_modflow.io.geopackage import Geopackage
 
 
 class TestGeopackage:

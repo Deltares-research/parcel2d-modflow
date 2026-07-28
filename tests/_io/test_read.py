@@ -5,8 +5,8 @@ import xarray as xr
 from numpy.testing import assert_array_equal
 
 from parcel2d_modflow import config
-from parcel2d_modflow._exceptions import ValidationError
-from parcel2d_modflow._io import read
+from parcel2d_modflow.exceptions import ValidationError
+from parcel2d_modflow.io import read
 from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Soilmap
 
 
