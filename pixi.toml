@@ -32,6 +32,7 @@ ruff = "*"
 pooch = "*"
 pre-commit = "*"
 pyinstrument = "*"
+deptry = "*"
 
 [pypi-dependencies]
 parcel2d_modflow = { path = ".", editable = true }

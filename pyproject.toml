@@ -3,7 +3,15 @@ maintainers = [
     {name = "Bas Knaake", email = "bas.knaake@deltares.nl"},
 ]
 dependencies = [
-    "loguru"
+    "flopy",
+    "geopandas",
+    "numpy",
+    "pandas",
+    "pydantic",
+    "loguru",
+    "rioxarray",
+    "shapely",
+    "xarray",
 ]
 name = "parcel2d-modflow"
 requires-python = ">=3.12"
