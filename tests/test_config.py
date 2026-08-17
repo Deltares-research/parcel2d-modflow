@@ -158,6 +158,64 @@ def test_run_settings():
 
 
 @pytest.mark.unittest
+def test_modflow_settings():
+    settings = config.ModflowSettings(
+        modflow_executable="mf.exe", parameters="parameters.csv"
+    )
+
+    assert isinstance(settings, config.ModflowSettings)
+    assert isinstance(settings.modflow_executable, Path)
+    assert isinstance(settings.parameters, Path)
+    assert settings.aquifer_method == "flux"
+    assert settings.gw_recharge_method == "recharge"
+    assert settings.measure == "ref"
+    assert settings.evt_method == "woerkom"
+    assert settings.modflow_kwargs == {}
+
+    settings = config.ModflowSettings(
+        modflow_executable="mf.exe",
+        parameters="parameters.csv",
+        gw_recharge_method="precip_evap",
+        measure="ssi",
+        evt_method="combi",
+        modflow_kwargs={"key": "value"},
+    )
+    assert settings.gw_recharge_method == "precip_evap"
+    assert settings.measure == "ssi"
+    assert settings.evt_method == "combi"
+    assert settings.modflow_kwargs == {"key": "value"}
+
+    settings = config.ModflowSettings(
+        modflow_executable="mf.exe",
+        parameters="parameters.csv",
+        measure="pssi",
+        evt_method="boon",
+    )
+    assert settings.measure == "pssi"
+    assert settings.evt_method == "boon"
+
+    with pytest.raises(ValidationError):  # Missing mandatory field 'parameters'
+        config.ModflowSettings(modflow_executable="mf.exe")
+
+    with pytest.raises(ValidationError):  # Missing mandatory field 'modflow_executable'
+        config.ModflowSettings(parameters="parameters.csv")
+
+    with pytest.raises(ValidationError) as excinfo:
+        config.ModflowSettings(
+            modflow_executable="mf.exe",
+            parameters="parameters.csv",
+            aquifer_method="invalid_method",
+            gw_recharge_method="invalid_method",
+            measure="invalid_measure",
+            evt_method="invalid_method",
+        )
+        assert "aquifer_method" in str(excinfo.value)
+        assert "gw_recharge_method" in str(excinfo.value)
+        assert "measure" in str(excinfo.value)
+        assert "evt_method" in str(excinfo.value)
+
+
+@pytest.mark.unittest
 def test_data():
     data = config.InputData(
         parcels="parcels.geoparquet",

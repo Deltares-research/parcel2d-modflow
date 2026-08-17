@@ -12,8 +12,6 @@ from parcel2d_modflow import utils
 if TYPE_CHECKING:
     import numpy as np
 
-type Dimension = Literal["1D", "2D"]
-
 
 class Config(BaseModel):
     settings: ModelSettings
@@ -102,7 +100,7 @@ class ModelSettings(BaseModel):
     include_leap_days: bool = True
     summer_start: int = Field(default=4, ge=1, le=12)
     winter_start: int = Field(default=10, ge=1, le=12)
-    dimension: Dimension = "2D"
+    dimension: Literal["1D", "2D"] = "2D"
     ditch_depth: int | float = Field(default=0.7, ge=0.0)
     ditch_resistance: int | float = Field(default=1.0, ge=0.0)
     min_water_depth: int | float = Field(default=0.4, ge=0.0)
@@ -217,6 +215,8 @@ class ModflowSettings(BaseModel):
     parameters: Path
     aquifer_method: Literal["flux"] = "flux"
     measure: Literal["ref", "ssi", "pssi"] = "ref"
+    gw_recharge_method: Literal["precip_evap", "recharge"] = "recharge"
+    evt_method: Literal["woerkom", "combi", "boon"] = "woerkom"
     modflow_kwargs: dict[str, Any] = Field(default_factory=dict)
 
 

@@ -15,6 +15,7 @@ from parcel2d_modflow.exceptions import (
     ValidationError,
 )
 from parcel2d_modflow.mf._model import ModflowModel
+from parcel2d_modflow.mf.evt_profiles import calc_evt_profile
 from parcel2d_modflow.modeldata import GroundwaterData, Presets
 from parcel2d_modflow.utils import strip_column_units
 
@@ -44,18 +45,22 @@ class Modflow(AbstractModule):
         model.
     aquifer_method : str
         Method to run the Modflow model with. Currently only 'flux' is implemented.
-    precip_evap_method : str
-        Method to run the Modflow model with for how recharge is determined, can be
-        'precip_evap' or 'recharge'.
-        - 'precip_evap': The Modflow model uses precipitation and evapotranspiration data
-        to determine recharge.
-        - 'recharge': The Modflow model uses recharge data to determine recharge.
     measure : str, optional
-        Measure to run the Modflow model with. Can be 'ssi' or 'pssi'. The default is
-        None.
+        Measure to run the Modflow model with. Can be 'ref', 'ssi' or 'pssi'. The default
+        is 'ref'.
+    gw_recharge_method : str
+        Method to run the Modflow model with for how groundwater recharge is determined,
+        can be 'precip_evap' or 'recharge'.
+        - 'precip_evap': The Modflow model uses precipitation and evapotranspiration data
+        to determine groundwater recharge.
+        - 'recharge': The Modflow model uses recharge data to determine groundwater recharge.
+    evt_method : str, optional
+        Method to calculate the evapotranspiration profile for the Modflow model when the
+        `gw_recharge_method` is 'precip_evap', otherwise this will be ignored. Can be
+        'woerkom', 'combi' or 'boon'. The default is 'woerkom'.
     modflow_kwargs : dict[str, Any], optional
         Optional keyword arguments for `flopy.mf6.MFSimulation` constructor for the Modflow
-        model. The default is None.
+        model. The default is None, which passes an empty dict.
     """
 
     _module_type = "groundwater"
@@ -66,8 +71,9 @@ class Modflow(AbstractModule):
         parameters: pd.DataFrame,
         modflow_executable: str | Path,
         aquifer_method: Literal["flux"] = "flux",
-        gw_recharge_method: Literal["precip_evap", "recharge"] = "recharge",
         measure: Literal["ref", "ssi", "pssi"] = "ref",
+        gw_recharge_method: Literal["precip_evap", "recharge"] = "recharge",
+        evt_method: Literal["woerkom", "combi", "boon"] = "woerkom",
         modflow_kwargs: dict[str, Any] = None,
     ):
         self._validate_init_args(
@@ -79,6 +85,7 @@ class Modflow(AbstractModule):
         self.gw_recharge_method = gw_recharge_method
         self.executable = Path(modflow_executable)
         self.measure = measure
+        self.evt_method = evt_method
         self.modflow_kwargs = modflow_kwargs or {}
         self._discretization = None
         self._recharge = None
