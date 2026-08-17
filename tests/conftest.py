@@ -270,13 +270,13 @@ def weather_station_shape(tmp_path):
 
 
 @pytest.fixture
-def knmi_temperature_data():
+def knmi_measurement_data():
     """
     Small selection of KNMI temperature data for testing purposes in the format of data
     downloaded from https://daggegevens.knmi.nl/klimatologie/daggegevens.
 
     """
-    return Path(__file__).parent / "data/test_knmi_temperature.txt"
+    return Path(__file__).parent / "data/knmi_measurements.txt"
 
 
 @pytest.fixture

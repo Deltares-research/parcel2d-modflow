@@ -66,15 +66,17 @@ class Modflow(AbstractModule):
         parameters: pd.DataFrame,
         modflow_executable: str | Path,
         aquifer_method: Literal["flux"] = "flux",
-        recharge_method: Literal["precip_evap", "recharge"] = "recharge",
+        gw_recharge_method: Literal["precip_evap", "recharge"] = "recharge",
         measure: Literal["ref", "ssi", "pssi"] = "ref",
         modflow_kwargs: dict[str, Any] = None,
     ):
-        self._validate_init_args(measure, parameters, aquifer_method, recharge_method)
+        self._validate_init_args(
+            measure, parameters, aquifer_method, gw_recharge_method
+        )
 
         self.parameters = strip_column_units(parameters)
         self.aquifer_method = aquifer_method
-        self.recharge_method = recharge_method
+        self.gw_recharge_method = gw_recharge_method
         self.executable = Path(modflow_executable)
         self.measure = measure
         self.modflow_kwargs = modflow_kwargs or {}
@@ -88,7 +90,7 @@ class Modflow(AbstractModule):
 
     def __repr__(self):
         aquifer_method = self.aquifer_method
-        recharge_method = self.recharge_method
+        recharge_method = self.gw_recharge_method
         measure = self.measure
         return f"{self.__class__.__name__}({aquifer_method=}, {recharge_method=}, {measure=})"
 
@@ -97,7 +99,7 @@ class Modflow(AbstractModule):
         measure: str,
         parameters: pd.DataFrame,
         aquifer_method: str,
-        recharge_method: str,
+        gw_recharge_method: str,
     ) -> None:
         """
         Validate the initialization arguments for the Modflow module.
@@ -137,10 +139,10 @@ class Modflow(AbstractModule):
                 )
             )
 
-        if recharge_method not in {"precip_evap", "recharge"}:
+        if gw_recharge_method not in {"precip_evap", "recharge"}:
             errors.append(
                 InvalidInputError(
-                    f"Recharge method '{recharge_method}' is not valid. Valid methods "
+                    f"Recharge method '{gw_recharge_method}' is not valid. Valid methods "
                     "are: {'precip_evap', 'recharge'}"
                 )
             )

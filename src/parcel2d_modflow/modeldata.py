@@ -595,12 +595,15 @@ class WeatherData:
             Path to save the csv file to.
         **kwargs
             Additional keyword arguments to pass to `pd.DataFrame.to_csv()`.
+
         """
         measurements = self.measurements.copy()
 
-        # We need to multiply by 10 to convert back to the original unit for saving because
-        # the KNMI stores temperatures in 0.1 degree Celsius and stores as integers
-        measurements["TG"] = (measurements["TG"] * 10).astype(int)
+        if "TG" in measurements.columns:
+            # We need to multiply by 10 to convert back to the original unit for saving because
+            # the KNMI stores temperatures in 0.1 degree Celsius and stores as integers
+            measurements["TG"] = (measurements["TG"] * 10).astype(int)
+
         measurements.to_csv(path, **kwargs)
 
 

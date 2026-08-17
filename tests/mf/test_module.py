@@ -43,7 +43,7 @@ def modflow_module(modflow_parameters: pd.DataFrame, modflow_executable: str):
         parameters=modflow_parameters,
         modflow_executable=modflow_executable,
         aquifer_method="flux",
-        recharge_method="recharge",
+        gw_recharge_method="recharge",
         measure="ssi",
     )
 
@@ -62,7 +62,7 @@ def initialized_modflow_module(
         parameters=modflow_parameters,
         modflow_executable=modflow_executable,
         aquifer_method="flux",
-        recharge_method="recharge",
+        gw_recharge_method="recharge",
         measure="ssi",
     )
     mf.parameters.columns = [c.split(" ")[0] for c in mf.parameters.columns]
@@ -148,7 +148,7 @@ class TestModflow:
             module.parameters.columns, ["runnr", "kh", "sy_peat", "sy_clay"]
         )
         assert module.aquifer_method == "flux"
-        assert module.recharge_method == "recharge"
+        assert module.gw_recharge_method == "recharge"
         assert module.discretization is None
         assert module.recharge is None
         assert module.aquifer is None
@@ -160,11 +160,11 @@ class TestModflow:
         module = Modflow(
             parameters=modflow_parameters,
             modflow_executable=modflow_executable,
-            recharge_method="precip_evap",
+            gw_recharge_method="precip_evap",
         )
         assert module.is_valid(module.name)
         assert isinstance(module, Modflow)
-        assert module.recharge_method == "precip_evap"
+        assert module.gw_recharge_method == "precip_evap"
 
         with pytest.raises(ValidationError) as excinfo:
             Modflow(
@@ -221,7 +221,7 @@ class TestModflow:
             Modflow(
                 parameters=modflow_parameters,
                 modflow_executable=modflow_executable,
-                recharge_method="invalid_method",
+                gw_recharge_method="invalid_method",
             )
             errors = excinfo.value.args[0]
             assert len(errors) == 1

@@ -231,26 +231,32 @@ def read_weather_data(
     """
     Read all the required weather data for SOMERS modelling runs. This consists of weather
     stations, time series of temperature data, and weather regions.
+
     Parameters
     ----------
     weather_stations : str | Path
         Shapefile like file containing the weather stations.
     knmi_measurements : str | Path
-        Text file containing the KNMI measurement data. The file should be downloaded from the
-        KNMI website.
+        Text file containing the KNMI measurement data. The file should be downloaded from
+        the KNMI website. The downloaded file should be converted to plain csv format without
+        the header and comments that are present in the downloaded file. See the format below::
+
+            STN,YYYYMMDD,TG,RH,...,EV24
+            260,20220101,5.0,0.0,...,0.
     weather_regions : str | Path
         Shapefile like file containing the weather regions.
     correction_params : dict[str, float], optional
         Dictionary containing the correction parameters for temperature data. The default
-        is None, then an instance of :class:`~somers.constants.ParameterCorrectionCurve`
+        is None, then an instance of :class:`~parcel2d_modflow.constants.ParameterCorrectionCurve`
         with default values is used.
     kappa : dict[str, float], optional
         Dictionary containing best kappa parameters for the soil temperature module. The
-        default is None, then an instance of :class:`~somers.constants.BestKappa` with default
-        values is used.
+        default is None, then an instance of :class:`~parcel2d_modflow.constants.BestKappa`
+        with default values is used.
+
     Returns
     -------
-    :class:`~somers.modeldata.WeatherData`
+    :class:`~parcel2d_modflow.modeldata.WeatherData`
         `WeatherData` instance containing the weather stations, temperature data, weather
         regions, correction parameters and kappa.
 
@@ -274,14 +280,17 @@ def read_knmi_measurements(file: str | Path) -> pd.DataFrame:
     """
     Read downloaded KNMI measurement data from a text-file. Measurement data can be downloaded
     from the KNMI website from the following url: https://daggegevens.knmi.nl/klimatologie/daggegevens
+
     Parameters
     ----------
     file : str | Path
         Path to the KNMI temperature data text-file.
+
     Returns
     -------
     pd.DataFrame
-        DataFrame containing the temperature data.
+        DataFrame containing the measurement data.
+
     """
     measurements = pd.read_csv(
         file,
@@ -290,9 +299,11 @@ def read_knmi_measurements(file: str | Path) -> pd.DataFrame:
         parse_dates=["YYYYMMDD"],
         index_col="YYYYMMDD",
     )
-    to_degree_celsius = 10
+    if "TG" in measurements.columns:
+        to_degree_celsius = 10
+        measurements["TG"] = measurements["TG"] / to_degree_celsius
+
     to_m_per_day = 1e4
-    measurements["TG"] = measurements["TG"] / to_degree_celsius
     if "RH" in measurements.columns:
         # -1 is code for <0.05 mm precipitation
         measurements["RH"] = measurements["RH"].astype(float).replace(-1, 0.025)

@@ -189,10 +189,10 @@ def test_read_modflow_parameters(
 
 @pytest.mark.unittest
 def test_read_weather_data(
-    weather_station_shape, knmi_temperature_data, weather_regions
+    weather_station_shape, knmi_measurement_data, weather_regions
 ):
     weather_data = read.read_weather_data(
-        weather_station_shape, knmi_temperature_data, weather_regions
+        weather_station_shape, knmi_measurement_data, weather_regions
     )
     assert isinstance(weather_data, WeatherData)
     assert isinstance(weather_data.stations, gpd.GeoDataFrame)
@@ -201,11 +201,16 @@ def test_read_weather_data(
     assert isinstance(weather_data.correction_params, ParameterCorrectionCurve)
     assert isinstance(weather_data.kappa, BestKappa)
 
+    # Make sure units are converted correctly
+    assert weather_data.measurements["TG"].iloc[1] == 3.6
+    assert weather_data.measurements["RH"].iloc[1] == 0.0003
+    assert weather_data.measurements["EV24"].iloc[1] == 0.0001
+
     assert_array_equal(
         weather_data.stations.columns,
         ["id", "station", "geometry", "index_right", "weather_rg"],
     )
-    assert_array_equal(weather_data.measurements.columns, ["STN", "TG"])
+    assert_array_equal(weather_data.measurements.columns, ["STN", "TG", "RH", "EV24"])
     assert weather_data.measurements.index.name == "YYYYMMDD"
     assert_array_equal(weather_data.regions.columns, ["weather_rg", "geometry"])
     assert weather_data.correction_params._fields == ("a", "b", "c", "d")
@@ -213,7 +218,7 @@ def test_read_weather_data(
 
     weather_data = read.read_weather_data(
         weather_station_shape,
-        knmi_temperature_data,
+        knmi_measurement_data,
         weather_regions,
         correction_params=dict(a=12.0),
         kappa=dict(r=3.0),
@@ -223,8 +228,8 @@ def test_read_weather_data(
 
 
 @pytest.mark.unittest
-def test_read_knmi_temperature(knmi_temperature_data):
-    temperature = read.read_knmi_measurements(knmi_temperature_data)
+def test_read_knmi_temperature(knmi_measurement_data):
+    temperature = read.read_knmi_measurements(knmi_measurement_data)
     assert isinstance(temperature, pd.DataFrame)
-    assert_array_equal(temperature.columns, ["STN", "TG"])
+    assert_array_equal(temperature.columns, ["STN", "TG", "RH", "EV24"])
     assert temperature.index.name == "YYYYMMDD"
