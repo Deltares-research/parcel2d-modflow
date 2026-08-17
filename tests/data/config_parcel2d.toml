@@ -25,6 +25,6 @@ soilmap-gpkg = './data/soilmap.gpkg'
 
 [output]
 directory = './output' # Directory where output files will be written
-file = "./output/phreatic_head.nc"
+file = "./output/result.geoparquet"
 format = "geoparquet"
 prefix = "batch" # Each batch from a single process will be written to a separate file with this prefix
