@@ -517,9 +517,76 @@ class WeatherData:
             "weather_rg",
         ].item()
 
-    def temperature_to_csv(self, path: str | Path, **kwargs) -> None:
+    def load_parcel_precipitation(
+        self, parcel: Parcel, start_date: pd.Timestamp, end_date: pd.Timestamp
+    ) -> components.ModflowInputSeries:
         """
-        Save the temperature data to a csv file similar to ones downloaded from the KNMI
+        Load the precipitation data for a given parcel and time period.
+
+        Parameters
+        ----------
+        parcel : Parcel
+            Parcel for which the precipitation data is loaded.
+        start_date : pd.Timestamp
+            Start date (day) of the time period.
+        end_date : pd.Timestamp
+            End date (day) of the time period.
+
+        Returns
+        -------
+        components.ModflowInputSeries
+            Pandas Series containing the precipitation data for the given parcel.
+
+        """
+        precipitation = self.knmi_measurements.loc[
+            self.knmi_measurements["STN"] == parcel.nearest_weather_station, "RH"
+        ]
+        precipitation_start = (
+            precipitation.loc[slice(start_date - pd.Timedelta(days=60), start_date)]
+            .mean()
+            .item()
+        )
+        precipitation_series = precipitation.loc[slice(start_date, end_date)]
+        return components.ModflowInputSeries(
+            precipitation_start, precipitation_series.values
+        )
+
+    def load_parcel_evapotranspiration(
+        self, parcel: Parcel, start_date: pd.Timestamp, end_date: pd.Timestamp
+    ) -> components.ModflowInputSeries:
+        """
+        Load the evapotranspiration data for a given parcel and time period.
+
+        Parameters
+        ----------
+        parcel : :class:`~somers.base.Parcel`
+            Parcel for which the evapotranspiration data is loaded.
+        start_date : pd.Timestamp
+            Start date (day) of the time period.
+        end_date : pd.Timestamp
+            End date (day) of the time period.
+
+        Returns
+        -------
+        components.ModflowInputSeries
+            Evapotranspiration data for the given parcel.
+
+        """
+        evap = self.knmi_measurements.loc[
+            self.knmi_measurements["STN"] == parcel.nearest_weather_station, "EV24"
+        ]
+
+        evap_start = (
+            evap.loc[slice(start_date - pd.Timedelta(days=60), start_date)]
+            .mean()
+            .item()
+        )
+        evap_series = evap.loc[slice(start_date, end_date)]
+        return components.ModflowInputSeries(evap_start, evap_series.values)
+
+    def measurements_to_csv(self, path: str | Path, **kwargs) -> None:
+        """
+        Save the measurements data to a csv file similar to ones downloaded from the KNMI
         but without the header.
 
         Parameters
@@ -529,12 +596,12 @@ class WeatherData:
         **kwargs
             Additional keyword arguments to pass to `pd.DataFrame.to_csv()`.
         """
-        temperature = self.measurements.copy()
+        measurements = self.measurements.copy()
 
         # We need to multiply by 10 to convert back to the original unit for saving because
         # the KNMI stores temperatures in 0.1 degree Celsius and stores as integers
-        temperature["TG"] = (temperature["TG"] * 10).astype(int)
-        temperature.to_csv(path, **kwargs)
+        measurements["TG"] = (measurements["TG"] * 10).astype(int)
+        measurements.to_csv(path, **kwargs)
 
 
 # TODO: Figure out how to deal with Presets. So far, has not been used in any Somers work
