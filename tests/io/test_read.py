@@ -5,9 +5,10 @@ import xarray as xr
 from numpy.testing import assert_array_equal
 
 from parcel2d_modflow import config
+from parcel2d_modflow.constants import BestKappa, ParameterCorrectionCurve
 from parcel2d_modflow.exceptions import ValidationError
 from parcel2d_modflow.io import read
-from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Soilmap
+from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Soilmap, WeatherData
 
 
 @pytest.fixture
@@ -184,3 +185,46 @@ def test_read_modflow_parameters(
         ValidationError, match="Modflow parameters DataFrame is missing columns:"
     ):
         read.read_modflow_parameters(modflow_parameter_file_missing_columns)
+
+
+@pytest.mark.unittest
+def test_read_weather_data(
+    weather_station_shape, knmi_temperature_data, weather_regions
+):
+    weather_data = read.read_weather_data(
+        weather_station_shape, knmi_temperature_data, weather_regions
+    )
+    assert isinstance(weather_data, WeatherData)
+    assert isinstance(weather_data.stations, gpd.GeoDataFrame)
+    assert isinstance(weather_data.measurements, pd.DataFrame)
+    assert isinstance(weather_data.regions, gpd.GeoDataFrame)
+    assert isinstance(weather_data.correction_params, ParameterCorrectionCurve)
+    assert isinstance(weather_data.kappa, BestKappa)
+
+    assert_array_equal(
+        weather_data.stations.columns,
+        ["id", "station", "geometry", "index_right", "weather_rg"],
+    )
+    assert_array_equal(weather_data.measurements.columns, ["STN", "TG"])
+    assert weather_data.measurements.index.name == "YYYYMMDD"
+    assert_array_equal(weather_data.regions.columns, ["weather_rg", "geometry"])
+    assert weather_data.correction_params._fields == ("a", "b", "c", "d")
+    assert weather_data.kappa._fields == ("rmse", "r", "nse")
+
+    weather_data = read.read_weather_data(
+        weather_station_shape,
+        knmi_temperature_data,
+        weather_regions,
+        correction_params=dict(a=12.0),
+        kappa=dict(r=3.0),
+    )
+    assert weather_data.correction_params.a == 12.0
+    assert weather_data.kappa.r == 3.0
+
+
+@pytest.mark.unittest
+def test_read_knmi_temperature(knmi_temperature_data):
+    temperature = read.read_knmi_measurements(knmi_temperature_data)
+    assert isinstance(temperature, pd.DataFrame)
+    assert_array_equal(temperature.columns, ["STN", "TG"])
+    assert temperature.index.name == "YYYYMMDD"

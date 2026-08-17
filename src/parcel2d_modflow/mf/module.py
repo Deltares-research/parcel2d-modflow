@@ -104,7 +104,7 @@ class Modflow(AbstractModule):
         return self._discretization
 
     @property
-    def recharge(self) -> components.Recharge:
+    def recharge(self) -> components.ModflowInputSeries:
         """
         :class:`~somers.components.Recharge` input for the Modflow model. Available
         after initialization of the `Module` for a given :class:`~somers.Parcel`.
@@ -113,7 +113,7 @@ class Modflow(AbstractModule):
         return self._recharge
 
     @property
-    def aquifer(self) -> components.Aquifer:
+    def aquifer(self) -> components.ModflowInputSeries:
         """
         :class:`~somers.components.Aquifer` input for the Modflow model. Available
         after initialization of the `Module` for a given :class:`~somers.Parcel`.

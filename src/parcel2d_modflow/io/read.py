@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from parcel2d_modflow import modeldata, utils
 from parcel2d_modflow.config import Config
+from parcel2d_modflow.constants import BestKappa, ParameterCorrectionCurve
 from parcel2d_modflow.exceptions import ConfigError
 from parcel2d_modflow.io.soilmap import BroSoilmap
 from parcel2d_modflow.modeldata import ModelData
@@ -220,7 +221,83 @@ def read_modflow_parameters(file: str | Path, **pd_kwargs) -> pd.DataFrame:
     return pd.read_csv(file, **pd_kwargs)
 
 
-if __name__ == "__main__":
-    config_file = r"c:\src\somers\parcel2d-modflow\dev\config_parcel2d.toml"
-    config = read_config(config_file)
-    print()
+def read_weather_data(
+    weather_stations: str | Path,
+    knmi_measurements: str | Path,
+    weather_regions: str | Path,
+    correction_params: dict[str, float] = None,
+    kappa: dict[str, float] = None,
+) -> modeldata.WeatherData:
+    """
+    Read all the required weather data for SOMERS modelling runs. This consists of weather
+    stations, time series of temperature data, and weather regions.
+    Parameters
+    ----------
+    weather_stations : str | Path
+        Shapefile like file containing the weather stations.
+    knmi_measurements : str | Path
+        Text file containing the KNMI measurement data. The file should be downloaded from the
+        KNMI website.
+    weather_regions : str | Path
+        Shapefile like file containing the weather regions.
+    correction_params : dict[str, float], optional
+        Dictionary containing the correction parameters for temperature data. The default
+        is None, then an instance of :class:`~somers.constants.ParameterCorrectionCurve`
+        with default values is used.
+    kappa : dict[str, float], optional
+        Dictionary containing best kappa parameters for the soil temperature module. The
+        default is None, then an instance of :class:`~somers.constants.BestKappa` with default
+        values is used.
+    Returns
+    -------
+    :class:`~somers.modeldata.WeatherData`
+        `WeatherData` instance containing the weather stations, temperature data, weather
+        regions, correction parameters and kappa.
+
+    """
+    correction_params = ParameterCorrectionCurve(**(correction_params or {}))
+    kappa = BestKappa(**(kappa or {}))
+
+    stations = utils.geopandas_read(weather_stations)
+    measurements = read_knmi_measurements(knmi_measurements)
+    regions = utils.geopandas_read(weather_regions)
+
+    regions.set_crs(stations.crs, inplace=True)
+    stations = stations.sjoin(regions, predicate="within")
+
+    return modeldata.WeatherData(
+        stations, measurements, regions, correction_params, kappa
+    )
+
+
+def read_knmi_measurements(file: str | Path) -> pd.DataFrame:
+    """
+    Read downloaded KNMI measurement data from a text-file. Measurement data can be downloaded
+    from the KNMI website from the following url: https://daggegevens.knmi.nl/klimatologie/daggegevens
+    Parameters
+    ----------
+    file : str | Path
+        Path to the KNMI temperature data text-file.
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing the temperature data.
+    """
+    measurements = pd.read_csv(
+        file,
+        comment="#",
+        skipinitialspace=True,
+        parse_dates=["YYYYMMDD"],
+        index_col="YYYYMMDD",
+    )
+    to_degree_celsius = 10
+    to_m_per_day = 1e4
+    measurements["TG"] = measurements["TG"] / to_degree_celsius
+    if "RH" in measurements.columns:
+        # -1 is code for <0.05 mm precipitation
+        measurements["RH"] = measurements["RH"].astype(float).replace(-1, 0.025)
+        measurements["RH"] /= to_m_per_day
+    if "EV24" in measurements.columns:
+        measurements["EV24"] /= to_m_per_day
+
+    return measurements

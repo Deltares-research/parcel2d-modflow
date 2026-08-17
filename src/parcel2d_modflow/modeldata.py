@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
     from parcel2d_modflow.base import Parcel
     from parcel2d_modflow.config import ModelSettings
+    from parcel2d_modflow.constants import BestKappa, ParameterCorrectionCurve
 
 
 class ModelData(NamedTuple):
@@ -151,7 +152,7 @@ class GroundwaterData:
 
     def load_aquifer_flux(
         self, parcel: Parcel, settings: ModelSettings
-    ) -> components.Aquifer:
+    ) -> components.ModflowInputSeries:
         """
         Load LHM aquifer flux data for a given parcel and time period.
 
@@ -159,16 +160,14 @@ class GroundwaterData:
         ----------
         parcel : :class:`~parcel2d_modflow.Parcel`
             Parcel for which the recharge data is loaded at xy-location.
-        start_date : pd.Timestamp
-            Start date (day) of the time period.
-        end_date : pd.Timestamp
-            End date (day) of the time period.
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            Model settings containing the start and end dates of the time period.
 
         Returns
         -------
-        :class:`~parcel2d_modflow.components.Aquifer`
-            Recharge component for Modflow model containing the start recharge for the
-            time period and the recharge through time.
+        :class:`~parcel2d_modflow.components.ModflowInputSeries`
+            Aquifer flux component for Modflow model containing the start flux for the
+            time period and the flux through time.
 
         """
         if self.flux is None:
@@ -184,11 +183,11 @@ class GroundwaterData:
         )
         flux_start = flux_start.mean().item() / self.cell_area
         flux = flux_xy.sel(time=settings.date_range).values / self.cell_area
-        return components.Aquifer(flux_start, flux)
+        return components.ModflowInputSeries(flux_start, flux)
 
     def load_recharge(
         self, parcel: Parcel, start_date: pd.Timestamp, end_date: pd.Timestamp
-    ) -> components.Recharge:
+    ) -> components.ModflowInputSeries:
         """
         Load LHM recharge data for a given parcel and time period.
 
@@ -203,7 +202,7 @@ class GroundwaterData:
 
         Returns
         -------
-        :class:`~parcel2d_modflow.components.Recharge`
+        :class:`~parcel2d_modflow.components.ModflowInputSeries`
             Recharge component for Modflow model containing the start recharge for the
             time period and the recharge through time.
 
@@ -229,7 +228,7 @@ class GroundwaterData:
             / mm_to_m
         )
         recharge_series = recharge.sel(time=slice(start_date, end_date)) / mm_to_m
-        return components.Recharge(recharge_start, recharge_series.values)
+        return components.ModflowInputSeries(recharge_start, recharge_series.values)
 
     def load_phreatic_head(
         self, parcel: Parcel, date_range: pd.DatetimeIndex
@@ -251,6 +250,7 @@ class GroundwaterData:
         phreatic_head: xr.DataArray
             PhreaticHead component for Measurements model containing the phreatic head
             through time.
+
         """
         if self.head is None:
             raise AttributeError(
@@ -407,6 +407,136 @@ class Soilmap:
         return profile
 
 
+@dataclass(repr=False, slots=True)
+class WeatherData:
+    """
+    Container for weather data.
+
+    Parameters
+    ----------
+    stations : gpd.GeoDataFrame
+        GeoDataFrame with KNMI weather station locations.
+    measurements : pd.DataFrame
+        DataFrame with measurement data from the KNMI. The data must at least contain
+        temperature ("TG") data. Precipitation ("RR") and evapotranspiration ("EVAP")
+        are optional and are only needed when the `precip_evap_method="precip_evap"` in
+        :class:`~parcel2d_modflow.mf.Modflow`.
+    regions : gpd.GeoDataFrame
+        GeoDataFrame with weather regions.
+    correction_params : :class:`~parcel2d_modflow.constants.ParameterCorrectionCurve`
+        NamedTuple containing the correction parameters for temperature data.
+    kappa : :class:`~parcel2d_modflow.constants.BestKappa`
+        NamedTuple containing best kappa parameters for the soil temperature module.
+    """
+
+    stations: gpd.GeoDataFrame
+    measurements: pd.DataFrame
+    regions: gpd.GeoDataFrame
+    correction_params: ParameterCorrectionCurve
+    kappa: BestKappa
+
+    def __repr__(self):
+        stations = type(self.stations)
+        measurements = type(self.measurements)
+        regions = type(self.regions)
+        correction_params = type(self.correction_params)
+        kappa = type(self.kappa)
+        return (
+            f"{self.__class__.__name__}({stations=}, {measurements=}, {regions=}, "
+            f"{correction_params=}, {kappa=})"
+        )
+
+    def calc_corrected_temperature(self) -> None:
+        """
+        Calculate the corrected air temperature based on the correction parameters. This
+        adds a new column "corrected_air_temp" to the temperature DataFrame.
+
+        """
+        dayofyear = self.measurements.index.dayofyear
+        a, b, c, d = self.correction_params
+        correction = a * np.sin(dayofyear * b - c) + d
+        corrected = self.measurements["TG"] + correction
+        self.measurements["corrected_air_temp"] = corrected
+
+    def get_corrected_air_temperature(
+        self,
+        parcel: Parcel,
+        start_date: pd.Timestamp,
+        end_date: pd.Timestamp,
+        spinup: int = 60,
+    ) -> pd.Series:
+        """
+        Select the corrected air temperature for a given parcel and time period.
+
+        Parameters
+        ----------
+        parcel : :class:`~parcel2d_modflow.Parcel`
+            Parcel for which the temperature data is loaded.
+        start_date : pd.Timestamp
+            Start date (day) of the time period.
+        end_date : pd.Timestamp
+            End date (day) of the time period.
+        spinup : int, optional
+            "Spinup" period in days for which to select temperature data. The selects the
+            number of days before the start date. The default is 60 days.
+
+        Returns
+        -------
+        pd.Series
+            Pandas Series with the corrected air temperature values with datetime index
+            for the given time period including spinup days.
+
+        """
+        if "corrected_air_temp" not in self.measurements.columns:
+            self.calc_corrected_temperature()
+
+        spinup = pd.Timedelta(days=spinup)
+
+        temperature = self.measurements[
+            self.measurements["STN"] == parcel.nearest_weather_station
+        ]
+        return temperature.loc[(start_date - spinup) : end_date, "corrected_air_temp"]
+
+    def get_weather_region(self, parcel: Parcel) -> str:
+        """
+        Select the name of the weather region a given parcel is located in.
+
+        Parameters
+        ----------
+        parcel : :class:`~parcel2d_modflow.Parcel`
+            Parcel for which the weather region is loaded.
+
+        Returns
+        -------
+        str
+            Name of the weather region.
+
+        """
+        return self.regions.loc[
+            self.regions["geometry"].contains(gmt.Point(parcel.x, parcel.y)),
+            "weather_rg",
+        ].item()
+
+    def temperature_to_csv(self, path: str | Path, **kwargs) -> None:
+        """
+        Save the temperature data to a csv file similar to ones downloaded from the KNMI
+        but without the header.
+
+        Parameters
+        ----------
+        path : str | Path
+            Path to save the csv file to.
+        **kwargs
+            Additional keyword arguments to pass to `pd.DataFrame.to_csv()`.
+        """
+        temperature = self.measurements.copy()
+
+        # We need to multiply by 10 to convert back to the original unit for saving because
+        # the KNMI stores temperatures in 0.1 degree Celsius and stores as integers
+        temperature["TG"] = (temperature["TG"] * 10).astype(int)
+        temperature.to_csv(path, **kwargs)
+
+
 # TODO: Figure out how to deal with Presets. So far, has not been used in any Somers work
 # but in the calibration of the Modflow model. Now, it only allows for loading a single
 # time series of aquifer flux, recharge, ditch stage and pssi stage data for a given
@@ -480,7 +610,7 @@ class Presets:
                 f"{settings.end_date=}."
             )
         start = np.mean(series[:30])
-        return components.Aquifer(start, series)
+        return components.ModflowInputSeries(start, series)
 
     def load_ditches(self, settings: ModelSettings, surface_level: int | float) -> None:
         """
@@ -564,7 +694,7 @@ class Presets:
                 f"{settings.end_date=}."
             )
         start = np.mean(series[:30])
-        return components.Recharge(start, series)
+        return components.ModflowInputSeries(start, series)
 
     def load_ssi_measure(
         self,

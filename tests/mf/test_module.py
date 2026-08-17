@@ -55,7 +55,7 @@ def initialized_modflow_module(
         np.array([1, 1, 1, 1, 1, 2, 2]),
         np.array([0.001, 2200.0]),
     )
-    mf._recharge = components.Recharge(
+    mf._recharge = components.ModflowInputSeries(
         0.00048,
         np.array(
             [
@@ -69,7 +69,7 @@ def initialized_modflow_module(
             ]
         ),
     )
-    mf._aquifer = components.Aquifer(
+    mf._aquifer = components.ModflowInputSeries(
         -0.000936,
         np.array(
             [
@@ -253,7 +253,7 @@ class TestModflow:
     ):
         modflow_module._load_recharge(parcel, lhm_data, model_settings, empty_presets)
 
-        assert isinstance(modflow_module.recharge, components.Recharge)
+        assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
         assert modflow_module.recharge.start == 0.00048118845
         assert isinstance(modflow_module.recharge.series, np.ndarray)
         assert len(modflow_module.recharge.series) == 7
@@ -269,7 +269,7 @@ class TestModflow:
     ):
         modflow_module._load_recharge(parcel, lhm_data, model_settings, presets)
 
-        assert isinstance(modflow_module.recharge, components.Recharge)
+        assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
         assert np.isclose(modflow_module.recharge.start, 0.00149386)
         assert isinstance(modflow_module.recharge.series, np.ndarray)
         assert len(modflow_module.recharge.series) == 7
@@ -285,7 +285,7 @@ class TestModflow:
     ):
         modflow_module._load_aquifer(parcel, lhm_data, model_settings, empty_presets)
 
-        assert isinstance(modflow_module.aquifer, components.Aquifer)
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
         assert modflow_module.aquifer.start == -0.000936158816
         assert isinstance(modflow_module.aquifer.series, np.ndarray)
         assert len(modflow_module.aquifer.series) == 7
@@ -301,7 +301,7 @@ class TestModflow:
     ):
         modflow_module._load_aquifer(parcel, lhm_data, model_settings, presets)
 
-        assert isinstance(modflow_module.aquifer, components.Aquifer)
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
         assert np.isclose(modflow_module.aquifer.start, -0.000931428)
         assert isinstance(modflow_module.aquifer.series, np.ndarray)
         assert len(modflow_module.aquifer.series) == 7
@@ -442,9 +442,9 @@ class TestModflow:
         modflow_module.initialize(parcel, settings, lhm_data)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
         assert_array_equal(modflow_module.discretization.kvalues, [0.01, 2200.0])
-        assert isinstance(modflow_module.recharge, components.Recharge)
+        assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
         assert modflow_module.recharge.start == 0.00048118845
-        assert isinstance(modflow_module.aquifer, components.Aquifer)
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
         assert modflow_module.aquifer.start == -0.000936158816
         assert isinstance(modflow_module.ditches, components.Ditches)
         assert modflow_module.ditches.bottom == -2.8
@@ -465,9 +465,9 @@ class TestModflow:
         modflow_module.initialize(parcel, model_settings, lhm_data, presets)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
         assert_array_equal(modflow_module.discretization.kvalues, [0.0001, 2200.0])
-        assert isinstance(modflow_module.recharge, components.Recharge)
+        assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
         assert np.isclose(modflow_module.recharge.start, 0.00149386)
-        assert isinstance(modflow_module.aquifer, components.Aquifer)
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
         assert np.isclose(modflow_module.aquifer.start, -0.000931428)
         assert isinstance(modflow_module.ditches, components.Ditches)
         assert_array_almost_equal(modflow_module.ditches.stage, [-2.5014], decimal=4)

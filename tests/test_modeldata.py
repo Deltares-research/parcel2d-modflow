@@ -69,7 +69,7 @@ class TestLhmData:
     @pytest.mark.unittest
     def test_load_recharge(self, lhm_data, parcel, start_date, end_date):
         recharge = lhm_data.load_recharge(parcel, start_date, end_date)
-        assert isinstance(recharge, components.Recharge)
+        assert isinstance(recharge, components.ModflowInputSeries)
         assert isinstance(recharge.start, float)
         assert isinstance(recharge.series, np.ndarray)
         assert recharge.series.size == 32
@@ -101,7 +101,7 @@ class TestLhmData:
     @pytest.mark.unittest
     def test_load_aquifer_flux(self, lhm_data, parcel, settings):
         aquifer = lhm_data.load_aquifer_flux(parcel, settings)
-        assert isinstance(aquifer, components.Aquifer)
+        assert isinstance(aquifer, components.ModflowInputSeries)
         assert isinstance(aquifer.start, float)
         assert isinstance(aquifer.series, np.ndarray)
         assert aquifer.series.size == 32

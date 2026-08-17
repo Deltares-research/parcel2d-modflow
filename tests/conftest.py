@@ -255,6 +255,46 @@ def _create_preset(data, date_range, name):
 
 
 @pytest.fixture
+def weather_station_shape(tmp_path):
+    """
+    Dummy weather station shapefile with one weather station.
+
+    """
+    stations = gpd.GeoDataFrame(
+        {"id": [260], "station": ["De Bilt"], "geometry": [gmt.Point(2.0, 2.0)]},
+        crs=28992,
+    )
+    outfile = tmp_path / "stations.shp"
+    stations.to_file(outfile)
+    return outfile
+
+
+@pytest.fixture
+def knmi_temperature_data():
+    """
+    Small selection of KNMI temperature data for testing purposes in the format of data
+    downloaded from https://daggegevens.knmi.nl/klimatologie/daggegevens.
+
+    """
+    return Path(__file__).parent / "data/test_knmi_temperature.txt"
+
+
+@pytest.fixture
+def weather_regions(tmp_path):
+    """
+    Dummy shapefile with one weather region.
+
+    """
+    regions = gpd.GeoDataFrame(
+        {"weather_rg": ["northeast"], "geometry": [gmt.box(0, 0, 4, 4)]},
+        crs=28992,
+    )
+    outfile = tmp_path / "regions.shp"
+    regions.to_file(outfile)
+    return outfile
+
+
+@pytest.fixture
 def presets(model_settings):
     """
     `Presets` fixture containing dummy input for all optional somers presets.

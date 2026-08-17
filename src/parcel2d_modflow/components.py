@@ -34,24 +34,12 @@ class SubsurfaceStructure(NamedTuple):
     kvalues: np.ndarray
 
 
-class Recharge(NamedTuple):
+class ModflowInputSeries(NamedTuple):
     """
     start: float
         Recharge for steady state run
     series: np.ndarray
         Recharge on a daily basis (d)
-    """
-
-    start: float
-    series: np.ndarray
-
-
-class Aquifer(NamedTuple):
-    """
-    start: float
-        aquifer start value for steady state run
-    series: np.ndarray
-        hydraulic head in aquifer 1
     """
 
     start: float
