@@ -16,7 +16,7 @@ from parcel2d_modflow.exceptions import (
 )
 from parcel2d_modflow.mf._model import ModflowModel
 from parcel2d_modflow.mf.evt_profiles import calc_evt_profile
-from parcel2d_modflow.modeldata import GroundwaterData, Presets
+from parcel2d_modflow.modeldata import GroundwaterData, Presets, WeatherData
 from parcel2d_modflow.utils import strip_column_units
 
 
@@ -87,12 +87,18 @@ class Modflow(AbstractModule):
         self.measure = measure
         self.evt_method = evt_method
         self.modflow_kwargs = modflow_kwargs or {}
+
+        # Attributes set after initialization of the Modflow module for a given Parcel
         self._discretization = None
         self._recharge = None
+        self._evapotranspiration = None
+        self._precipitation = None
         self._aquifer = None
         self._ditches = None
         self._trenches = None
         self._ssi = None
+
+        # Attributes set after running the Modflow model for a given Parcel
         self._success_and_failures = None
 
     def __repr__(self):
@@ -175,6 +181,24 @@ class Modflow(AbstractModule):
         return self._recharge
 
     @property
+    def precipitation(self) -> components.ModflowInputSeries:
+        """
+        :class:`~parcel2d_modflow.components.ModflowInputSeries` input for the Modflow model.
+        Available after initialization of the `Module` for a given :class:`~parcel2d_modflow.Parcel`.
+
+        """
+        return self._precipitation
+
+    @property
+    def evapotranspiration(self) -> components.ModflowInputSeries:
+        """
+        :class:`~parcel2d_modflow.components.ModflowInputSeries` input for the Modflow model.
+        Available after initialization of the `Module` for a given :class:`~parcel2d_modflow.Parcel`.
+
+        """
+        return self._evapotranspiration
+
+    @property
     def aquifer(self) -> components.ModflowInputSeries:
         """
         :class:`~parcel2d_modflow.components.ModflowInputSeries` input for the Modflow model.
@@ -227,7 +251,9 @@ class Modflow(AbstractModule):
         self,
         parcel: Parcel,
         settings: ModelSettings,
+        *,
         lhm: GroundwaterData,
+        weather: WeatherData = None,
         presets: Presets = None,
     ) -> None:
         """
@@ -239,14 +265,14 @@ class Modflow(AbstractModule):
             `Parcel` for which the Modflow model is initialized.
         settings : :class:`~parcel2d_modflow.ModelSettings`
             General settings for the model run.
-        soilmap : :class:`~parcel2d_modflow.modeldata.Soilmap`
-            Soilmap data container to select all relevant soilmap information for the
-            parcel from. See :class:`~parcel2d_modflow.modeldata.Soilmap` docstring for
-            more information.
-        lhm : :class:`~somers.modeldata.GroundwaterData`
+        lhm : :class:`~parcel2d_modflow.modeldata.GroundwaterData`
             LHM data container to select the relevant hydrological information for the
             parcel from. See :class:`~parcel2d_modflow.modeldata.GroundwaterData` docstring
             for more information.
+        weather : :class:`~parcel2d_modflow.modeldata.WeatherData`, optional
+            Weather data container to select the relevant weather information for the parcel
+            from. See :class:`~parcel2d_modflow.modeldata.WeatherData` docstring for more
+            information.
         presets : :class:`~parcel2d_modflow.modeldata.Presets`
             Presets data container with bounding conditions for the Modflow model.
 
@@ -257,7 +283,12 @@ class Modflow(AbstractModule):
         self._discretize_parcel(
             parcel, lhm, settings.dz_resistance_layer, presets.resistance
         )
-        self._load_recharge(parcel, lhm, settings, presets)
+
+        if self.gw_recharge_method == "precip_evap":
+            self._load_precip_evap_data(parcel, weather, settings)
+        elif self.gw_recharge_method == "recharge":
+            self._load_recharge(parcel, lhm, settings, presets)
+
         self._load_aquifer(parcel, lhm, settings, presets)
         self._load_ditches(parcel, settings, presets)
 
@@ -435,6 +466,29 @@ class Modflow(AbstractModule):
             self._recharge = lhm.load_recharge(
                 parcel, settings.start_date, settings.end_date
             )
+
+    def _load_precip_evap_data(
+        self, parcel: Parcel, weather: WeatherData, settings: ModelSettings
+    ) -> None:
+        """
+        Load precipitation and evapotranspiration data for determining the groundwater
+        recharge in the model for a given parcel and time period.
+
+        Parameters
+        ----------
+        parcel : :class:`~parcel2d_modflow.Parcel`
+            Parcel for which the recharge data is loaded at xy-location.
+        weather : :class:`~parcel2d_modflow.modeldata.WeatherData`
+            Weather data container with precipitation and evapotranspiration information
+            for the parcel.
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            General settings for the model run.
+
+        """
+        self._precipitation = weather.load_precipitation(parcel, settings.date_range)
+        self._evapotranspiration = weather.load_evapotranspiration(
+            parcel, settings.date_range
+        )
 
     def _load_aquifer(
         self,

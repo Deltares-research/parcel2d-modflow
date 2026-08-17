@@ -124,7 +124,9 @@ def initialized_modflow_with_presets(
 
     """
     settings = model_settings.model_copy(update={"add_trenches": True})
-    modflow_module.initialize(parcel, settings, lhm_data, presets)
+    modflow_module.initialize(
+        parcel, settings, lhm=lhm_data, weather=None, presets=presets
+    )
     return modflow_module
 
 
@@ -348,6 +350,23 @@ class TestModflow:
         assert len(modflow_module.recharge.series) == 7
 
     @pytest.mark.unittest
+    def test_load_precip_evap_data(
+        self, modflow_module, parcel, model_settings, weather_data
+    ):
+        modflow_module._load_precip_evap_data(parcel, weather_data, model_settings)
+        assert isinstance(modflow_module.precipitation, components.ModflowInputSeries)
+        assert isinstance(modflow_module.precipitation.start, float)
+        assert isinstance(modflow_module.precipitation.series, np.ndarray)
+        assert len(modflow_module.precipitation.series) == 7
+
+        assert isinstance(
+            modflow_module.evapotranspiration, components.ModflowInputSeries
+        )
+        assert isinstance(modflow_module.evapotranspiration.start, float)
+        assert isinstance(modflow_module.evapotranspiration.series, np.ndarray)
+        assert len(modflow_module.evapotranspiration.series) == 7
+
+    @pytest.mark.unittest
     def test_load_flux(
         self,
         modflow_module: Modflow,
@@ -512,7 +531,7 @@ class TestModflow:
         lhm_data: GroundwaterData,
     ):
         settings = model_settings.model_copy(update={"add_trenches": True})
-        modflow_module.initialize(parcel, settings, lhm_data)
+        modflow_module.initialize(parcel, settings, lhm=lhm_data)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
         assert_array_equal(modflow_module.discretization.kvalues, [0.01, 2200.0])
         assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
@@ -535,7 +554,7 @@ class TestModflow:
         lhm_data: GroundwaterData,
         presets: Presets,
     ):
-        modflow_module.initialize(parcel, model_settings, lhm_data, presets)
+        modflow_module.initialize(parcel, model_settings, lhm=lhm_data, presets=presets)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
         assert_array_equal(modflow_module.discretization.kvalues, [0.0001, 2200.0])
         assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
@@ -958,7 +977,7 @@ class TestModflow:
         mf = Modflow(
             parameters=modflow_parameters, modflow_executable=modflow_executable
         )
-        mf.initialize(parcel, model_settings, lhm_data)
+        mf.initialize(parcel, model_settings, lhm=lhm_data)
         ph = mf.run(parcel, model_settings)
         assert isinstance(ph, xr.DataArray)
         # TODO: make sure a run with a "COMPLEX" modflow model is used and test result

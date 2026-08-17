@@ -213,6 +213,10 @@ class TestSoilmap:
 
 
 class TestWeatherData:
+    @pytest.fixture
+    def invalid_date_range(self):
+        return pd.date_range("1800-01-01", "1800-02-01", freq="D")
+
     @pytest.mark.unittest
     def test_weather_data(self, weather_data):
         assert isinstance(weather_data, WeatherData)
@@ -245,6 +249,46 @@ class TestWeatherData:
     def test_get_weather_region(self, weather_data, parcel):
         region = weather_data.get_weather_region(parcel)
         assert region == "northeast"
+
+    @pytest.mark.unittest
+    def test_load_precipitation(
+        self, weather_data, parcel, model_settings, invalid_date_range
+    ):
+        result = weather_data.load_precipitation(
+            parcel, model_settings.date_range, spinup=10
+        )
+        assert isinstance(result, components.ModflowInputSeries)
+        assert np.isclose(result.start, 0.0018915909)
+        assert_array_almost_equal(
+            result.series,
+            [0.0003, 0.0132, 0.0000025, 0.0003, 0.0054, 0.0000025, 0.0033],
+        )
+
+        with pytest.raises(
+            MissingDataError,
+            match="Weather data is missing 'RH' data for the required modelling period",
+        ):
+            weather_data.load_precipitation(parcel, invalid_date_range)
+
+    @pytest.mark.unittest
+    def test_load_evapotranspiration(
+        self, weather_data, parcel, model_settings, invalid_date_range
+    ):
+        result = weather_data.load_evapotranspiration(
+            parcel, model_settings.date_range, spinup=10
+        )
+        assert isinstance(result, components.ModflowInputSeries)
+        assert np.isclose(result.start, 0.0002090909)
+        assert_array_almost_equal(
+            result.series,
+            [0.0003, 0.0003, 0.0003, 0.0002, 0.0002, 0.0004, 0.0002],
+        )
+
+        with pytest.raises(
+            MissingDataError,
+            match="Weather data is missing 'EV24' data for the required modelling period",
+        ):
+            weather_data.load_evapotranspiration(parcel, invalid_date_range)
 
     @pytest.mark.unittest
     def test_measurements_to_csv(self, weather_data, tmp_path):

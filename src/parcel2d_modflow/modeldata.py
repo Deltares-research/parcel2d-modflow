@@ -212,11 +212,6 @@ class GroundwaterData:
                 f"Cannot load recharge from LhmData. LhmData.recharge = {self.recharge}."
             )
 
-        if self.recharge is None:
-            raise AttributeError(
-                f"Cannot load recharge from LhmData. LhmData.recharge = {self.recharge}."
-            )
-
         recharge = self.recharge.sel(x=parcel.x, y=parcel.y, method="nearest")
 
         mm_to_m = 1000
@@ -517,8 +512,32 @@ class WeatherData:
             "weather_rg",
         ].item()
 
-    def load_parcel_precipitation(
-        self, parcel: Parcel, start_date: pd.Timestamp, end_date: pd.Timestamp
+    def _load_modflow_series(
+        self, column: str, parcel: Parcel, date_range: pd.DatetimeIndex, spinup: int
+    ) -> components.ModflowInputSeries:
+        data = self.measurements.loc[
+            self.measurements["STN"] == parcel.nearest_weather_station, column
+        ]
+        start_date = date_range[0]
+        try:
+            precipitation_series = data.loc[date_range]
+            data_start = (
+                data.loc[slice(start_date - pd.Timedelta(days=spinup), start_date)]
+                .mean()
+                .item()
+            )
+        except KeyError as e:
+            raise MissingDataError(
+                f"Weather data is missing '{column}' data for the required modelling period."
+            ) from e
+
+        return components.ModflowInputSeries(data_start, precipitation_series.values)
+
+    def load_precipitation(
+        self,
+        parcel: Parcel,
+        date_range: pd.DatetimeIndex,
+        spinup: int = 60,
     ) -> components.ModflowInputSeries:
         """
         Load the precipitation data for a given parcel and time period.
@@ -527,10 +546,12 @@ class WeatherData:
         ----------
         parcel : Parcel
             Parcel for which the precipitation data is loaded.
-        start_date : pd.Timestamp
-            Start date (day) of the time period.
-        end_date : pd.Timestamp
-            End date (day) of the time period.
+        date_range: pd.DatetimeIndex
+            Date range to load the data for. Will raise an error if no daily data is
+            present for the entire date range.
+        spinup : int, optional
+            "Spinup" period in days for which to select precipitation data. This selects
+            the number of days before the start date. The default is 60 days.
 
         Returns
         -------
@@ -538,21 +559,13 @@ class WeatherData:
             Pandas Series containing the precipitation data for the given parcel.
 
         """
-        precipitation = self.knmi_measurements.loc[
-            self.knmi_measurements["STN"] == parcel.nearest_weather_station, "RH"
-        ]
-        precipitation_start = (
-            precipitation.loc[slice(start_date - pd.Timedelta(days=60), start_date)]
-            .mean()
-            .item()
-        )
-        precipitation_series = precipitation.loc[slice(start_date, end_date)]
-        return components.ModflowInputSeries(
-            precipitation_start, precipitation_series.values
-        )
+        return self._load_modflow_series("RH", parcel, date_range, spinup)
 
-    def load_parcel_evapotranspiration(
-        self, parcel: Parcel, start_date: pd.Timestamp, end_date: pd.Timestamp
+    def load_evapotranspiration(
+        self,
+        parcel: Parcel,
+        date_range: pd.DatetimeIndex,
+        spinup: int = 60,
     ) -> components.ModflowInputSeries:
         """
         Load the evapotranspiration data for a given parcel and time period.
@@ -561,10 +574,12 @@ class WeatherData:
         ----------
         parcel : :class:`~somers.base.Parcel`
             Parcel for which the evapotranspiration data is loaded.
-        start_date : pd.Timestamp
-            Start date (day) of the time period.
-        end_date : pd.Timestamp
-            End date (day) of the time period.
+        date_range: pd.DatetimeIndex
+            Date range to load the data for. Will raise an error if no daily data is
+            present for the entire date range.
+        spinup : int, optional
+            "Spinup" period in days for which to select evapotranspiration data. This selects
+            the number of days before the start date. The default is 60 days.
 
         Returns
         -------
@@ -572,17 +587,7 @@ class WeatherData:
             Evapotranspiration data for the given parcel.
 
         """
-        evap = self.knmi_measurements.loc[
-            self.knmi_measurements["STN"] == parcel.nearest_weather_station, "EV24"
-        ]
-
-        evap_start = (
-            evap.loc[slice(start_date - pd.Timedelta(days=60), start_date)]
-            .mean()
-            .item()
-        )
-        evap_series = evap.loc[slice(start_date, end_date)]
-        return components.ModflowInputSeries(evap_start, evap_series.values)
+        return self._load_modflow_series("EV24", parcel, date_range, spinup)
 
     def measurements_to_csv(self, path: str | Path, **kwargs) -> None:
         """
