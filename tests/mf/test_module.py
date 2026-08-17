@@ -12,6 +12,11 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 from parcel2d_modflow import components
 from parcel2d_modflow.base import Parcel
 from parcel2d_modflow.config import ModelSettings
+from parcel2d_modflow.exceptions import (
+    InvalidInputError,
+    MissingColumnError,
+    ValidationError,
+)
 from parcel2d_modflow.mf._model import ModflowModel
 from parcel2d_modflow.mf.module import Modflow
 from parcel2d_modflow.modeldata import GroundwaterData, Presets
@@ -34,7 +39,13 @@ def modflow_module(modflow_parameters: pd.DataFrame, modflow_executable: str):
 
     """
     modflow_parameters["entry_drain_resistance (d)"] = 1.0
-    return Modflow(modflow_parameters, "flux", modflow_executable, "ssi")
+    return Modflow(
+        parameters=modflow_parameters,
+        modflow_executable=modflow_executable,
+        aquifer_method="flux",
+        recharge_method="recharge",
+        measure="ssi",
+    )
 
 
 @pytest.fixture
@@ -47,7 +58,13 @@ def initialized_modflow_module(
 
     """
     modflow_parameters["entry_drain_resistance (d)"] = 1.0
-    mf = Modflow(modflow_parameters, "flux", modflow_executable, "ssi")
+    mf = Modflow(
+        parameters=modflow_parameters,
+        modflow_executable=modflow_executable,
+        aquifer_method="flux",
+        recharge_method="recharge",
+        measure="ssi",
+    )
     mf.parameters.columns = [c.split(" ")[0] for c in mf.parameters.columns]
     mf._discretization = components.SubsurfaceStructure(
         np.array([0.2, 0.15, 0.35, 0.5, 0.5, 0.05, 1.0]),
@@ -120,7 +137,9 @@ class TestModflow:
     def test_initialize_module(
         self, modflow_parameters: pd.DataFrame, modflow_executable: str
     ):
-        module = Modflow(modflow_parameters, "flux", modflow_executable)
+        module = Modflow(
+            parameters=modflow_parameters, modflow_executable=modflow_executable
+        )
         assert module.is_valid(module.name)
         assert isinstance(module, Modflow)
         assert isinstance(module.parameters, pd.DataFrame)
@@ -129,6 +148,7 @@ class TestModflow:
             module.parameters.columns, ["runnr", "kh", "sy_peat", "sy_clay"]
         )
         assert module.aquifer_method == "flux"
+        assert module.recharge_method == "recharge"
         assert module.discretization is None
         assert module.recharge is None
         assert module.aquifer is None
@@ -137,26 +157,79 @@ class TestModflow:
         assert module.ssi is None
         assert module._success_and_failures is None
 
-        expected_error = (
-            "Entry drain resistance is required for the measure: ssi. "
-            "Please add column 'entry_drain_resistance (d)' to the parameter file."
+        module = Modflow(
+            parameters=modflow_parameters,
+            modflow_executable=modflow_executable,
+            recharge_method="precip_evap",
         )
-        with pytest.raises(ValueError, match=re.escape(expected_error)):
-            Modflow(modflow_parameters, "flux", modflow_executable, "ssi")
+        assert module.is_valid(module.name)
+        assert isinstance(module, Modflow)
+        assert module.recharge_method == "precip_evap"
+
+        with pytest.raises(ValidationError) as excinfo:
+            Modflow(
+                parameters=modflow_parameters,
+                modflow_executable=modflow_executable,
+                measure="ssi",
+            )
+            errors = excinfo.value.args[0]
+
+            assert len(errors) == 1
+            assert isinstance(errors[0], MissingColumnError)
+            assert str(errors[0]) == (
+                "Entry drain resistance is required for the measure: ssi. "
+                "Please add column 'entry_drain_resistance (d)' to the parameter file."
+            )
 
         modflow_parameters["entry_drain_resistance (d)"] = 1.0
-        module = Modflow(modflow_parameters, "flux", modflow_executable, "ssi")
+        module = Modflow(
+            parameters=modflow_parameters,
+            modflow_executable=modflow_executable,
+            measure="ssi",
+        )
         assert isinstance(module, Modflow)
 
-        expected_error = (
-            "Aquifer method 'invalid_method' is not implemented for the Modflow module"
-        )
-        with pytest.raises(NotImplementedError, match=expected_error):
-            Modflow(modflow_parameters, "invalid_method", modflow_executable)
+        with pytest.raises(ValidationError) as excinfo:
+            Modflow(
+                parameters=modflow_parameters,
+                modflow_executable=modflow_executable,
+                aquifer_method="invalid_method",
+            )
+            errors = excinfo.value.args[0]
+            assert len(errors) == 1
+            assert isinstance(errors[0], InvalidInputError)
+            assert (
+                str(errors[0])
+                == "Aquifer method 'invalid_method' is not implemented for the Modflow module"
+            )
 
-        expected_error = "Measure 'invalid_measure' is not a valid measure. Valid measures are: {'ref', 'ssi', 'pssi'}"
-        with pytest.raises(ValueError, match=expected_error):
-            Modflow(modflow_parameters, "flux", modflow_executable, "invalid_measure")
+        with pytest.raises(ValidationError) as excinfo:
+            Modflow(
+                parameters=modflow_parameters,
+                modflow_executable=modflow_executable,
+                measure="invalid_measure",
+            )
+            errors = excinfo.value.args[0]
+            assert len(errors) == 1
+            assert isinstance(errors[0], InvalidInputError)
+            assert str(errors[0]) == (
+                "Measure 'invalid_measure' is not a valid measure. "
+                "Valid measures are: {'ref', 'ssi', 'pssi'}"
+            )
+
+        with pytest.raises(ValidationError) as excinfo:
+            Modflow(
+                parameters=modflow_parameters,
+                modflow_executable=modflow_executable,
+                recharge_method="invalid_method",
+            )
+            errors = excinfo.value.args[0]
+            assert len(errors) == 1
+            assert isinstance(errors[0], InvalidInputError)
+            assert str(errors[0]) == (
+                "Recharge method 'invalid_method' is not valid. "
+                "Valid methods are: {'precip_evap', 'recharge'}"
+            )
 
     @pytest.mark.unittest
     def test_discretize_parcel(
@@ -882,7 +955,9 @@ class TestModflow:
         model_settings: ModelSettings,
         lhm_data: GroundwaterData,
     ):
-        mf = Modflow(modflow_parameters, "flux", modflow_executable)
+        mf = Modflow(
+            parameters=modflow_parameters, modflow_executable=modflow_executable
+        )
         mf.initialize(parcel, model_settings, lhm_data)
         ph = mf.run(parcel, model_settings)
         assert isinstance(ph, xr.DataArray)

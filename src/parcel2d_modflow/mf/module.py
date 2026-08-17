@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -9,6 +9,11 @@ from loguru import logger
 from parcel2d_modflow import components
 from parcel2d_modflow.base import AbstractModule, Parcel
 from parcel2d_modflow.config import ModelSettings
+from parcel2d_modflow.exceptions import (
+    InvalidInputError,
+    MissingColumnError,
+    ValidationError,
+)
 from parcel2d_modflow.mf._model import ModflowModel
 from parcel2d_modflow.modeldata import GroundwaterData, Presets
 from parcel2d_modflow.utils import strip_column_units
@@ -34,11 +39,17 @@ class Modflow(AbstractModule):
     ----------
     parameters : pd.DataFrame
         DataFrame with stochastic parameters to run the Modflow model with.
-    aquifer_method : str
-        Method to run the Modflow model with. Currently only 'flux' is implemented.
     modflow_executable : str | Path
         Path to the Modflow executable (e.g. "mf6.exe"). This is needed to run the Modflow
         model.
+    aquifer_method : str
+        Method to run the Modflow model with. Currently only 'flux' is implemented.
+    precip_evap_method : str
+        Method to run the Modflow model with for how recharge is determined, can be
+        'precip_evap' or 'recharge'.
+        - 'precip_evap': The Modflow model uses precipitation and evapotranspiration data
+        to determine recharge.
+        - 'recharge': The Modflow model uses recharge data to determine recharge.
     measure : str, optional
         Measure to run the Modflow model with. Can be 'ssi' or 'pssi'. The default is
         None.
@@ -51,33 +62,19 @@ class Modflow(AbstractModule):
 
     def __init__(
         self,
+        *,
         parameters: pd.DataFrame,
-        aquifer_method: str,
         modflow_executable: str | Path,
-        measure: str = "ref",
+        aquifer_method: Literal["flux"] = "flux",
+        recharge_method: Literal["precip_evap", "recharge"] = "recharge",
+        measure: Literal["ref", "ssi", "pssi"] = "ref",
         modflow_kwargs: dict[str, Any] = None,
     ):
-        if measure not in {"ref", "ssi", "pssi"}:
-            raise ValueError(
-                f"Measure '{measure}' is not a valid measure. Valid measures are: "
-                "{'ref', 'ssi', 'pssi'}"
-            )
+        self._validate_init_args(measure, parameters, aquifer_method, recharge_method)
 
-        if (measure != "ref") and not any(
-            parameters.columns.str.contains("entry_drain_resistance")
-        ):
-            raise ValueError(
-                f"Entry drain resistance is required for the measure: {measure}. "
-                "Please add column 'entry_drain_resistance (d)' to the parameter file."
-            )
         self.parameters = strip_column_units(parameters)
-
-        if aquifer_method != "flux":
-            raise NotImplementedError(
-                f"Aquifer method '{aquifer_method}' is not implemented for the Modflow module. "
-                "Currently only 'flux' method is implemented."
-            )
         self.aquifer_method = aquifer_method
+        self.recharge_method = recharge_method
         self.executable = Path(modflow_executable)
         self.measure = measure
         self.modflow_kwargs = modflow_kwargs or {}
@@ -91,14 +88,70 @@ class Modflow(AbstractModule):
 
     def __repr__(self):
         aquifer_method = self.aquifer_method
+        recharge_method = self.recharge_method
         measure = self.measure
-        return f"{self.__class__.__name__}({aquifer_method=}, {measure=})"
+        return f"{self.__class__.__name__}({aquifer_method=}, {recharge_method=}, {measure=})"
+
+    @staticmethod
+    def _validate_init_args(
+        measure: str,
+        parameters: pd.DataFrame,
+        aquifer_method: str,
+        recharge_method: str,
+    ) -> None:
+        """
+        Validate the initialization arguments for the Modflow module.
+
+        Raises
+        ------
+        ValidationError
+            If the measure is not a valid measure, if entry drain resistance is required
+            for the measure but not provided in the parameters, or if the aquifer method
+            is invalid.
+
+        """
+        errors = []
+        if measure not in {"ref", "ssi", "pssi"}:
+            errors.append(
+                InvalidInputError(
+                    f"Measure '{measure}' is not a valid measure. Valid measures are: "
+                    "{'ref', 'ssi', 'pssi'}"
+                )
+            )
+
+        if (measure != "ref") and not any(
+            parameters.columns.str.contains("entry_drain_resistance")
+        ):
+            errors.append(
+                MissingColumnError(
+                    f"Entry drain resistance is required for the measure: {measure}. "
+                    "Please add column 'entry_drain_resistance (d)' to the parameter file."
+                )
+            )
+
+        if aquifer_method != "flux":
+            errors.append(
+                InvalidInputError(
+                    f"Aquifer method '{aquifer_method}' is not implemented for the Modflow module. "
+                    "Currently only 'flux' method is implemented."
+                )
+            )
+
+        if recharge_method not in {"precip_evap", "recharge"}:
+            errors.append(
+                InvalidInputError(
+                    f"Recharge method '{recharge_method}' is not valid. Valid methods "
+                    "are: {'precip_evap', 'recharge'}"
+                )
+            )
+        if errors:
+            raise ValidationError(errors)
 
     @property
     def discretization(self) -> components.SubsurfaceStructure:
         """
-        :class:`~somers.components.SubsurfaceStructure` input for the Modflow model.
-        Available after initialization of the `Module` for a given :class:`~somers.Parcel`.
+        :class:`~parcel2d_modflow.components.SubsurfaceStructure` input for the Modflow model.
+        Available after initialization of the `Module` for a given :class:`~parcel2d_modflow.Parcel`.
 
         """
         return self._discretization
@@ -106,8 +159,8 @@ class Modflow(AbstractModule):
     @property
     def recharge(self) -> components.ModflowInputSeries:
         """
-        :class:`~somers.components.Recharge` input for the Modflow model. Available
-        after initialization of the `Module` for a given :class:`~somers.Parcel`.
+        :class:`~parcel2d_modflow.components.ModflowInputSeries` input for the Modflow model.
+        Available after initialization of the `Module` for a given :class:`~parcel2d_modflow.Parcel`.
 
         """
         return self._recharge
@@ -115,8 +168,8 @@ class Modflow(AbstractModule):
     @property
     def aquifer(self) -> components.ModflowInputSeries:
         """
-        :class:`~somers.components.Aquifer` input for the Modflow model. Available
-        after initialization of the `Module` for a given :class:`~somers.Parcel`.
+        :class:`~parcel2d_modflow.components.ModflowInputSeries` input for the Modflow model.
+        Available after initialization of the `Module` for a given :class:`~parcel2d_modflow.Parcel`.
 
         """
         return self._aquifer
@@ -124,8 +177,8 @@ class Modflow(AbstractModule):
     @property
     def ditches(self) -> components.Ditches:
         """
-        :class:`~somers.components.Ditches` input for the Modflow model. Available
-        after initialization of the `Module` for a given :class:`~somers.Parcel`.
+        :class:`~parcel2d_modflow.components.Ditches` input for the Modflow model. Available
+        after initialization of the `Module` for a given :class:`~parcel2d_modflow.Parcel`.
 
         """
         return self._ditches
@@ -133,8 +186,8 @@ class Modflow(AbstractModule):
     @property
     def trenches(self) -> components.Trenches:
         """
-        :class:`~somers.components.Trenches` input for the Modflow model. Available
-        after initialization of the `Module` for a given :class:`~somers.Parcel` and
+        :class:`~parcel2d_modflow.components.Trenches` input for the Modflow model. Available
+        after initialization of the `Module` for a given :class:`~parcel2d_modflow.Parcel` and
         trenches are incorporated in the modelling.
 
         """
@@ -143,8 +196,8 @@ class Modflow(AbstractModule):
     @property
     def ssi(self) -> components.SsiMeasure:
         """
-        :class:`~somers.components.SsiMeasure` input for the Modflow model. Available
-        after initialization of the `Module` for a given :class:`~somers.Parcel` with
+        :class:`~parcel2d_modflow.components.SsiMeasure` input for the Modflow model. Available
+        after initialization of the `Module` for a given :class:`~parcel2d_modflow.Parcel` with
         'ssi' or 'pssi' as a measure.
 
         """
@@ -173,17 +226,19 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        parcel : :class:`~somers.base.Parcel`
+        parcel : :class:`~parcel2d_modflow.Parcel`
             `Parcel` for which the Modflow model is initialized.
-        settings : :class:`~somers.base.ModelSettings`
-            General settings for the SOMERS model run.
-        soilmap : :class:`~somers.modeldata.Soilmap`
-            Soilmap data container to select all relevant soilmap information for the parcel
-            from. See :class:`~somers.modeldata.Soilmap` docstring for more information.
-        lhm : :class:`~somers.modeldata.LhmData`
-            LHM data container to select the relevant hydrological information for the parcel
-            from. See :class:`~somers.modeldata.LhmData` docstring for more information.
-        presets : :class:`~somers.base.Presets`
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            General settings for the model run.
+        soilmap : :class:`~parcel2d_modflow.modeldata.Soilmap`
+            Soilmap data container to select all relevant soilmap information for the
+            parcel from. See :class:`~parcel2d_modflow.modeldata.Soilmap` docstring for
+            more information.
+        lhm : :class:`~somers.modeldata.GroundwaterData`
+            LHM data container to select the relevant hydrological information for the
+            parcel from. See :class:`~parcel2d_modflow.modeldata.GroundwaterData` docstring
+            for more information.
+        presets : :class:`~parcel2d_modflow.modeldata.Presets`
             Presets data container with bounding conditions for the Modflow model.
 
         """
@@ -211,10 +266,10 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        parcel : :class:`~somers.base.Parcel`
+        parcel : :class:`~parcel2d_modflow.Parcel`
             `Parcel` for which the `Modflow` is run.
-        settings : :class:`~somers.base.ModelSettings`
-            General settings for the SOMERS model run.
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            General settings for the model run.
 
         Returns
         -------
@@ -306,9 +361,9 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        parcel : :class:`~somers.base.Parcel`
+        parcel : :class:`~parcel2d_modflow.Parcel`
             `Parcel` for which the Modflow model is discretized.
-        lhm : :class:`~somers.modeldata.LhmData`
+        lhm : :class:`~parcel2d_modflow.modeldata.GroundwaterData`
             LHM data container to select the confining layer information for the parcel.
         dz_resistance_layer : int | float, optional
             Thickness of the resistance layer in meters used in the Modflow groundwater
@@ -354,14 +409,14 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        parcel : :class:`~somers.base.Parcel`
+        parcel : :class:`~parcel2d_modflow.Parcel`
             Parcel for which the recharge data is loaded at xy-location.
-        lhm : :class:`~somers.modeldata.LhmData`
+        lhm : :class:`~parcel2d_modflow.modeldata.GroundwaterData`
             LHM data container to select the recharge information for the parcel.
-        settings : :class:`~somers.base.ModelSettings`
-            General settings for the SOMERS model run.
-        presets : :class:`~somers.base.Presets`
-            Somers optional `Presets` containing an optional daily time series of recharge
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            General settings for the model run.
+        presets : :class:`~parcel2d_modflow.modeldata.Presets`
+            Optional `Presets` containing an optional daily time series of recharge
             data for the ModflowModel in m/d. The default is None.
 
         """
@@ -384,14 +439,14 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        parcel : :class:`~somers.base.Parcel`
+        parcel : :class:`~parcel2d_modflow.Parcel`
             Parcel for which the flux data is loaded at xy-location.
-        lhm : :class:`~somers.modeldata.LhmData`
+        lhm : :class:`~parcel2d_modflow.modeldata.GroundwaterData`
             LHM data container to select the flux information for the parcel.
-        settings : :class:`~somers.base.ModelSettings`
-            General settings for the SOMERS model run.
-        presets : :class:`~somers.base.Presets`
-            Somers optional `Presets` containing an optional daily time series of flux data
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            General settings for the model run.
+        presets : :class:`~parcel2d_modflow.modeldata.Presets`
+            Optional `Presets` containing an optional daily time series of flux data
             for the ModflowModel in m/d. The default is None.
 
         Raises
@@ -418,12 +473,12 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        parcel : :class:`~somers.base.Parcel`
+        parcel : :class:`~parcel2d_modflow.Parcel`
             Parcel for which the ditch input data is loaded.
-        settings : :class:`~somers.base.ModelSettings`
-            General settings for the SOMERS model run.
-        presets : :class:`~somers.base.Presets`
-            Somers optional `Presets` containing an optional daily time series of ditch
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            General settings for the model run.
+        presets : :class:`~parcel2d_modflow.modeldata.Presets`
+            Optional `Presets` containing an optional daily time series of ditch
             water levels for the ModflowModel in m +NAP. The default is None.
 
         """
@@ -444,12 +499,12 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        parcel : :class:`~somers.base.Parcel`
-            Parcel for which the ditch input data is loaded.
-        settings : :class:`~somers.base.ModelSettings`
-            General settings for the SOMERS model run.
-        presets : :class:`~somers.base.Presets`
-            Somers optional `Presets` containing an optional daily time series of ditch
+        parcel : :class:`~parcel2d_modflow.Parcel`
+            Parcel for which the ssi or pssi measure input data is loaded.
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            General settings for the model run.
+        presets : :class:`~parcel2d_modflow.modeldata.Presets`
+            Optional `Presets` containing an optional daily time series of ditch
             water levels (i.e. `Presets.ditch_stage`) if the measure is "ssi" or pssi stage
             levels (i.e. `Presets.pssi_stage) if the measure is "pssi". Both must be in m
             +NAP. The default is None.
@@ -478,16 +533,16 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        parcel : :class:`~somers.base.Parcel`
+        parcel : :class:`~parcel2d_modflow.Parcel`
             Parcel for which the Modflow model is created.
-        settings : :class:`~somers.base.ModelSettings`
+        settings : :class:`~parcel2d_modflow.ModelSettings`
             NamedTuple containing general settings for the SOMERS model run.
         complexity : str
             Complexity of the model. Can be 'simple' or 'complex'.
 
         Returns
         -------
-        :class:`~somers.groundwater.model.ModflowModel`
+        :class:`~parcel2d_modflow.mf._model.ModflowModel`
             `ModflowModel` instance containing Modflow 6 modelling components to run the
             groundwater model.
 
@@ -521,7 +576,7 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        model : :class:`~somers.groundwater.model.ModflowModel`
+        model : :class:`~parcel2d_modflow.mf._model.ModflowModel`
             Initialized `ModflowModel` instance containing Modflow 6 modelling components
             to run the groundwater model.
         parameters : pd.DataFrame

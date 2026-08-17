@@ -6,6 +6,14 @@ class ValidationError(Parcel2dModflowError):
     """Exception raised for errors in the input validation."""
 
 
+class InvalidInputError(Parcel2dModflowError):
+    """Exception raised for invalid input data."""
+
+
+class MissingColumnError(InvalidInputError):
+    """Exception raised for missing columns in the input data."""
+
+
 class ConfigError(ValidationError):
     """Exception raised for errors in the configuration."""
 
