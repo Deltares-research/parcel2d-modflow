@@ -295,6 +295,20 @@ def weather_regions(tmp_path):
 
 
 @pytest.fixture
+def weather_data(weather_station_shape, knmi_measurement_data, weather_regions):
+    """
+    `somers.modeldata.WeatherData` fixture that reads weather data from the weather station
+    shape, KNMI temperature data, and weather regions fixtures.
+
+    """
+    from parcel2d_modflow import read_weather_data
+
+    return read_weather_data(
+        weather_station_shape, knmi_measurement_data, weather_regions
+    )
+
+
+@pytest.fixture
 def presets(model_settings):
     """
     `Presets` fixture containing dummy input for all optional somers presets.

@@ -6,6 +6,7 @@ from parcel2d_modflow.io.read import (
     read_groundwater_data,
     read_modflow_parameters,
     read_parcels,
+    read_weather_data,
 )
 from parcel2d_modflow.logging import init_logger
 from parcel2d_modflow.mf import Modflow
@@ -33,6 +34,7 @@ __all__ = [
     "read_bro_soilmap",
     "read_groundwater_data",
     "read_modflow_parameters",
+    "read_weather_data",
     "read_config",
     "read_parcels",
     "run_config",

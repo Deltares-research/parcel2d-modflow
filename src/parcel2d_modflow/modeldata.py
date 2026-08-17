@@ -599,10 +599,16 @@ class WeatherData:
         """
         measurements = self.measurements.copy()
 
+        # We need to convert units back to the original units and stored integer formats
         if "TG" in measurements.columns:
-            # We need to multiply by 10 to convert back to the original unit for saving because
-            # the KNMI stores temperatures in 0.1 degree Celsius and stores as integers
-            measurements["TG"] = (measurements["TG"] * 10).astype(int)
+            to_degree_celsius = 10
+            measurements["TG"] = (measurements["TG"] * to_degree_celsius).astype(int)
+
+        to_m_per_day = 1e4
+        if "RH" in measurements.columns:
+            measurements["RH"] *= to_m_per_day
+        if "EV24" in measurements.columns:
+            measurements["EV24"] *= to_m_per_day
 
         measurements.to_csv(path, **kwargs)
 

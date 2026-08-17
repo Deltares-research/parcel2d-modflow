@@ -10,7 +10,7 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 from parcel2d_modflow import components
 from parcel2d_modflow.config import ModelSettings
 from parcel2d_modflow.exceptions import MissingDataError
-from parcel2d_modflow.modeldata import GroundwaterData, Soilmap
+from parcel2d_modflow.modeldata import GroundwaterData, Soilmap, WeatherData
 
 
 @pytest.fixture
@@ -210,6 +210,56 @@ class TestSoilmap:
         empty_parcel.soilcode = "hVc"
         profile = soilmap.load_soilprofile(empty_parcel)
         assert_array_equal(profile["normalsoilprofile_id"], 1050)
+
+
+class TestWeatherData:
+    @pytest.mark.unittest
+    def test_weather_data(self, weather_data):
+        assert isinstance(weather_data, WeatherData)
+
+    @pytest.mark.unittest
+    def test_calc_corrected_temperature(self, weather_data):
+        weather_data.calc_corrected_temperature()
+        assert "corrected_air_temp" in weather_data.measurements.columns
+        assert_array_almost_equal(
+            weather_data.measurements["corrected_air_temp"].values[:5],
+            [3.20144553, 3.79494253, 3.48857162, 2.98233472, 3.07623365],
+        )
+
+    @pytest.mark.unittest
+    def test_get_corrected_air_temperature(
+        self, weather_data, parcel, start_date, end_date
+    ):
+        temperature = weather_data.get_corrected_air_temperature(
+            parcel, start_date, end_date
+        )
+        assert isinstance(temperature, pd.Series)
+        assert isinstance(temperature.index, pd.DatetimeIndex)
+        assert temperature.size == 92
+        assert_array_equal(
+            temperature.index[[0, -1]], pd.DatetimeIndex(["2021-11-02", "2022-02-01"])
+        )
+        assert_array_almost_equal(temperature.iloc[[0, -1]], [7.74334768, 7.4684343])
+
+    @pytest.mark.unittest
+    def test_get_weather_region(self, weather_data, parcel):
+        region = weather_data.get_weather_region(parcel)
+        assert region == "northeast"
+
+    @pytest.mark.unittest
+    def test_measurements_to_csv(self, weather_data, tmp_path):
+        from parcel2d_modflow.io.read import read_knmi_measurements
+
+        csv_path = tmp_path / "test.csv"
+        weather_data.measurements_to_csv(csv_path)
+        assert csv_path.exists()
+
+        # Read the CSV back and compare with the original temperature data to check if
+        # the data is saved correctly and temperature conversion is applied correctly
+        df = read_knmi_measurements(csv_path)
+        assert_array_equal(df.index, weather_data.measurements.index)
+        assert_array_equal(df.columns, weather_data.measurements.columns)
+        assert_array_almost_equal(df.values, weather_data.measurements.values)
 
 
 class TestPresets:  # TODO: Move this to parcel2d-modflow
