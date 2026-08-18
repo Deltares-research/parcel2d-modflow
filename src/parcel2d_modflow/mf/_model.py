@@ -1,4 +1,6 @@
-from typing import NamedTuple
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import flopy
 import numpy as np
@@ -6,6 +8,16 @@ import pandas as pd
 import xarray as xr
 
 from parcel2d_modflow.mf._budget_file import read_cbc
+
+if TYPE_CHECKING:
+    from parcel2d_modflow import ModelSettings, Parcel
+    from parcel2d_modflow.components import (
+        Ditches,
+        ModflowInputSeries,
+        SsiMeasure,
+        Trenches,
+    )
+    from parcel2d_modflow.mf.evt_profiles import EVTProfile
 
 FloatArray = np.ndarray
 
@@ -22,8 +34,8 @@ class ModflowModel:
 
     def __init__(
         self,
-        parcel: NamedTuple,
-        settings: NamedTuple,
+        parcel: Parcel,
+        settings: ModelSettings,
         thickness: np.ndarray,
     ):
         self.name = parcel.name
@@ -132,6 +144,7 @@ class ModflowModel:
         self.kh = None
         self.kh_over_kv = None
         self.recharge = None
+        self.evt = None
         self.ditch_stage = None
         self.aquifer_chd = None
         self.aquifer_wel = None
@@ -218,11 +231,11 @@ class ModflowModel:
             transient={1: True},
         )
 
-    def set_recharge(self, recharge: NamedTuple):
+    def set_recharge(self, recharge: ModflowInputSeries):
         """
         Parameters
         ----------
-        recharge: np.ndarray of floats
+        recharge: ModflowInputSeries
             Groundwater recharge (m/d).
             Size should be equal to the number of transient stress periods;
             i.e. it is assumed every stress period has its own recharge value.
@@ -267,19 +280,85 @@ class ModflowModel:
         with open(self.working_dir.joinpath("model.rcha"), "w") as f:
             f.write(text)
 
-    def set_aquifer_head(self, aquifer_input: NamedTuple, time: pd.DatetimeIndex):
+    def set_precipitation(self, precipitation: ModflowInputSeries):
+        self.set_recharge(precipitation)
+
+    def set_evapotranspiration(
+        self, evapotranspiration: ModflowInputSeries, evt_profile: EVTProfile
+    ):
         """
-        To set simply give the aquifer input NamedTuple,
+        Set the evapotranspiration package with a time series of evapotranspiration values
+        and an evapotranspiration profile.
+
+        Parameters
+        ----------
+        evapotranspiration : NamedTuple
+            ModflowInputSeries object containing the evapotranspiration time series and start value.
+        evt_profile : pd.Series
+            evapotranspiration profile, containing the following fields:
+            - evt_ext_depth: float, depth of the evapotranspiration layer (m)
+            - rel_segment_bottom: np.ndarray of floats, relative depth of the bottom of each segment (0-1)
+            - evt_fraction_values: np.ndarray of floats, fraction of evapotranspiration in each segment (0-1)
+
+        """
+        if evapotranspiration.series.size != self.duration.size - 1:
+            raise ValueError(
+                "Evapotranspiration size does not match time discretization. "
+                f"Expected {self.duration.size - 1}, got {evapotranspiration.series.size}"
+            )
+        self.evapotranspiration = np.insert(
+            evapotranspiration.series, 0, evapotranspiration.start
+        ).astype(np.float64)
+
+        stress_period_data = {
+            0: [
+                (
+                    (0, 0, i),
+                    self.surface,
+                    self.evapotranspiration[0],
+                    evt_profile.evt_ext_depth,
+                    *evt_profile.rel_segment_bottom,
+                    *evt_profile.evt_fraction_values,
+                )
+                for i in range(self.ncol)
+            ]
+        }
+
+        for i, t in enumerate(self.time[1:]):
+            stress_period_data[i + 1] = [
+                (
+                    (0, 0, j),
+                    self.surface,
+                    self.evapotranspiration[i + 1],
+                    evt_profile.evt_ext_depth,
+                    *evt_profile.rel_segment_bottom,
+                    *evt_profile.evt_fraction_values,
+                )
+                for j in range(self.ncol)
+            ]
+
+        self.remove_package(self.evt)
+        self.evt = flopy.mf6.ModflowGwfevt(
+            self.gwf,
+            fixed_cell=False,
+            save_flows=True,
+            nseg=len(evt_profile.evt_fraction_values) + 1,
+            stress_period_data=stress_period_data,
+        )
+
+    def set_aquifer_head(
+        self, aquifer_input: ModflowInputSeries, time: pd.DatetimeIndex
+    ):
+        """
+        To set simply give the aquifer input `ModflowInputSeries`,
         including a one sized array,
         with a one sized time array to match.
 
-        Parameters in aquifer_input
+        Parameters
         ----------
-        aquifer_series: np.ndarray of floats
-            head to set on the lower boundary.
+        aquifer_input: ModflowInputSeries
+            Aquifer input series containing the head to set on the lower boundary.
             May vary in time, does not vary in space.
-        aquifer_start: float
-            Starting head for calculation of steady state starting head
         time: np.ndarray of datetimes (string, np.datetime64, pd.Timestamp)
             Starting times at which the head is active.
             Will default to forward filling in time.
@@ -335,17 +414,17 @@ class ModflowModel:
         with open(self.working_dir.joinpath("model.aquifer_chd"), "w") as f:
             f.write(text)
 
-    def set_aquifer_flux(self, aquifer: NamedTuple, time: pd.DatetimeIndex):
+    def set_aquifer_flux(self, aquifer: ModflowInputSeries, time: pd.DatetimeIndex):
         """
-        To set a flux, simply give the aquifer input NamedTuple,
+        To set a flux, simply give the aquifer input `ModflowInputSeries`,
         including a one sized array,
         with a one sized time array to match.
         aquifer_flux will be multiplied by dx to generate the flux.
 
-        Parameters in aquifer_input
+        Parameters
         ----------
-        aquifer: :class:`~parcel2d_modflow.components.Aquifer`
-            Aquifer NamedTuple object containing the aquifer flux series and start value.
+        aquifer: :class:`~parcel2d_modflow.components.ModflowInputSeries`
+            Aquifer input series containing the aquifer flux series and start value.
         time: np.ndarray of datetimes (string, np.datetime64, pd.Timestamp)
             Starting times at which the head is active.
             Will default to forward filling in time.
@@ -403,7 +482,7 @@ class ModflowModel:
         with open(self.working_dir.joinpath("model.aquifer_wel"), "w") as f:
             f.write(text)
 
-    def set_trenches(self, trench_input: NamedTuple):
+    def set_trenches(self, trench_input: Trenches):
         """
         Set trenches with a fixed depth on given locations in the parcel.
 
@@ -445,7 +524,7 @@ class ModflowModel:
             pname="trn",
         )
 
-    def set_ditch_boundary(self, ditches: NamedTuple):
+    def set_ditch_boundary(self, ditches: Ditches):
         """
         Set ditchs on both sides (left/right) of the parcel.
 
@@ -503,7 +582,7 @@ class ModflowModel:
             pname="riv_drn",
         )
 
-    def set_ssi_boundary(self, entry_drain_resistance: float, ssi_input: NamedTuple):
+    def set_ssi_boundary(self, entry_drain_resistance: float, ssi_input: SsiMeasure):
         """
         Set drains on given depth and interval in the parcel.
 
@@ -589,7 +668,8 @@ class ModflowModel:
 
     def write(self):
         self.sim.write_simulation()
-        self.write_recharge_file()
+        if self.rch is not None:
+            self.write_recharge_file()
         if self.aquifer_chd is None:
             self.write_wel_file()
         elif self.aquifer_wel is None:

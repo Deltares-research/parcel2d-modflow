@@ -612,7 +612,14 @@ class Modflow(AbstractModule):
         """
         model = ModflowModel(parcel, settings, self.discretization.thickness)
         model.setup_flopy_simulation(complexity, self.executable, **self.modflow_kwargs)
-        model.set_recharge(self.recharge)
+
+        if self.gw_recharge_method == "precip_evap":
+            model.set_precipitation(self.precipitation)
+            evt_profile = calc_evt_profile(self.evt_method)
+            model.set_evapotranspiration(self.evapotranspiration, evt_profile)
+        elif self.gw_recharge_method == "recharge":
+            model.set_recharge(self.recharge)
+
         model.set_surface_drainage()
         model.set_ditch_boundary(self.ditches)
 
