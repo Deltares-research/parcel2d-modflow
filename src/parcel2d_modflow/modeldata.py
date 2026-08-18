@@ -186,7 +186,7 @@ class GroundwaterData:
         return components.ModflowInputSeries(flux_start, flux)
 
     def load_recharge(
-        self, parcel: Parcel, start_date: pd.Timestamp, end_date: pd.Timestamp
+        self, parcel: Parcel, settings: ModelSettings
     ) -> components.ModflowInputSeries:
         """
         Load LHM recharge data for a given parcel and time period.
@@ -195,10 +195,8 @@ class GroundwaterData:
         ----------
         parcel : :class:`~parcel2d_modflow.Parcel`
             Parcel for which the recharge data is loaded at xy-location.
-        start_date : pd.Timestamp
-            Start date (day) of the time period.
-        end_date : pd.Timestamp
-            End date (day) of the time period.
+        settings : :class:`~parcel2d_modflow.ModelSettings`
+            Model settings containing the start and end dates of the time period.
 
         Returns
         -------
@@ -216,13 +214,14 @@ class GroundwaterData:
 
         mm_to_m = 1000
 
+        start_date = settings.start_date
         recharge_start = (
             recharge.sel(time=slice(start_date - pd.Timedelta(days=60), start_date))
             .mean()
             .item()
             / mm_to_m
         )
-        recharge_series = recharge.sel(time=slice(start_date, end_date)) / mm_to_m
+        recharge_series = recharge.sel(time=settings.date_range) / mm_to_m
         return components.ModflowInputSeries(recharge_start, recharge_series.values)
 
     def load_phreatic_head(
@@ -235,16 +234,14 @@ class GroundwaterData:
         ----------
         parcel : :class:`~parcel2d_modflow.Parcel`
             Parcel for which the phreatic head data is loaded at xy-location.
-        start_date : pd.Timestamp
-            Start date (day) of the time period.
-        end_date : pd.Timestamp
-            End date (day) of the time period.
+        date_range : pd.DatetimeIndex
+            Date range to load the data for. Will raise an error if no daily data is
+            present for the entire date range.
 
         Returns
         -------
         phreatic_head: xr.DataArray
-            PhreaticHead component for Measurements model containing the phreatic head
-            through time.
+            Daily time series of phreatic head data for the Measurements module.
 
         """
         if self.head is None:
@@ -257,7 +254,7 @@ class GroundwaterData:
         try:
             head = head.sel(time=date_range)
         except KeyError as e:
-            raise KeyError(
+            raise MissingDataError(
                 "Phreatic head does not have data for the modelling period."
             ) from e
 

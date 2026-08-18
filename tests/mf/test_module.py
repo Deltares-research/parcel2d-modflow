@@ -1,6 +1,6 @@
-import re
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 import flopy
 import numpy as np
@@ -22,6 +22,11 @@ from parcel2d_modflow.mf.module import Modflow
 from parcel2d_modflow.modeldata import GroundwaterData, Presets
 
 
+class Params(NamedTuple):
+    gw_recharge_method: str = "recharge"
+    measure: str = "ref"
+
+
 @pytest.fixture
 def start_date():
     return pd.to_datetime("01-01-2022", format="%d-%m-%Y")
@@ -33,18 +38,26 @@ def end_date():
 
 
 @pytest.fixture
-def modflow_module(modflow_parameters: pd.DataFrame, modflow_executable: str):
+def modflow_module(
+    modflow_parameters: pd.DataFrame,
+    modflow_executable: str,
+    request: pytest.FixtureRequest,
+):
     """
-    Empty (not-initialized) `Modflow` module with "flux" method and "ssi" measure.
+    Empty (not-initialized) `Modflow` module.
 
     """
+    params = getattr(
+        request, "param", Params(gw_recharge_method="recharge", measure="ref")
+    )
+
     modflow_parameters["entry_drain_resistance (d)"] = 1.0
     return Modflow(
         parameters=modflow_parameters,
         modflow_executable=modflow_executable,
         aquifer_method="flux",
-        gw_recharge_method="recharge",
-        measure="ssi",
+        gw_recharge_method=params.gw_recharge_method,
+        measure=params.measure,
     )
 
 
@@ -233,7 +246,26 @@ class TestModflow:
                 "Valid methods are: {'precip_evap', 'recharge'}"
             )
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="recharge", measure="ref"),
+            Params(gw_recharge_method="recharge", measure="ssi"),
+            Params(gw_recharge_method="recharge", measure="pssi"),
+            Params(gw_recharge_method="precip_evap", measure="ref"),
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=[
+            "recharge-ref",
+            "recharge-ssi",
+            "recharge-pssi",
+            "precip_evap-ref",
+            "precip_evap-ssi",
+            "precip_evap-pssi",
+        ],
+        indirect=True,
+    )
     def test_discretize_parcel(
         self,
         modflow_module: Modflow,
@@ -275,7 +307,26 @@ class TestModflow:
         )
         assert_array_equal(modflow_module.discretization.kvalues, [0.01, 2200.0])
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="recharge", measure="ref"),
+            Params(gw_recharge_method="recharge", measure="ssi"),
+            Params(gw_recharge_method="recharge", measure="pssi"),
+            Params(gw_recharge_method="precip_evap", measure="ref"),
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=[
+            "recharge-ref",
+            "recharge-ssi",
+            "recharge-pssi",
+            "precip_evap-ref",
+            "precip_evap-ssi",
+            "precip_evap-pssi",
+        ],
+        indirect=True,
+    )
     def test_discretize_parcel_with_presets(
         self,
         modflow_module: Modflow,
@@ -317,7 +368,12 @@ class TestModflow:
         )
         assert_array_equal(modflow_module.discretization.kvalues, [0.0001, 2200.0])
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(measure="ref"), Params(measure="ssi"), Params(measure="pssi")],
+        ids=["ref", "ssi", "pssi"],
+        indirect=True,
+    )
     def test_load_recharge(
         self,
         modflow_module: Modflow,
@@ -529,6 +585,7 @@ class TestModflow:
         parcel: Parcel,
         model_settings: ModelSettings,
         lhm_data: GroundwaterData,
+        request,
     ):
         settings = model_settings.model_copy(update={"add_trenches": True})
         modflow_module.initialize(parcel, settings, lhm=lhm_data)
@@ -540,10 +597,15 @@ class TestModflow:
         assert modflow_module.aquifer.start == -0.000936158816
         assert isinstance(modflow_module.ditches, components.Ditches)
         assert modflow_module.ditches.bottom == -2.8
-        assert isinstance(modflow_module.ssi, components.SsiMeasure)
-        assert modflow_module.ssi.drain_depth == -2.7
         assert isinstance(modflow_module.trenches, components.Trenches)
         assert modflow_module.trenches.depth == -2.3
+
+        test_id = request.node.callspec.id  # ref, ssi or pssi
+        if test_id in {"ssi", "pssi"}:
+            assert isinstance(modflow_module.ssi, components.SsiMeasure)
+            assert modflow_module.ssi.drain_depth == -2.7
+        elif test_id == "ref":
+            assert modflow_module.ssi is None
 
     @pytest.mark.unittest
     def test_initialize_with_presets(
@@ -553,6 +615,7 @@ class TestModflow:
         model_settings: ModelSettings,
         lhm_data: GroundwaterData,
         presets: Presets,
+        request,
     ):
         modflow_module.initialize(parcel, model_settings, lhm=lhm_data, presets=presets)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
@@ -563,12 +626,23 @@ class TestModflow:
         assert np.isclose(modflow_module.aquifer.start, -0.000931428)
         assert isinstance(modflow_module.ditches, components.Ditches)
         assert_array_almost_equal(modflow_module.ditches.stage, [-2.5014], decimal=4)
-        assert isinstance(modflow_module.ssi, components.SsiMeasure)
-        assert_array_almost_equal(
-            modflow_module.ssi.drain_stage,
-            [-2.51, -2.51, -2.51, -2.5, -2.5, -2.49, -2.49],
-        )
         assert modflow_module.trenches is None
+
+        test_id = request.node.callspec.id  # ref, ssi or pssi
+        if test_id == "ssi":
+            assert isinstance(modflow_module.ssi, components.SsiMeasure)
+            assert_array_almost_equal(
+                modflow_module.ssi.drain_stage,
+                [-2.51, -2.51, -2.51, -2.5, -2.5, -2.49, -2.49],
+            )
+        elif test_id == "pssi":
+            assert isinstance(modflow_module.ssi, components.SsiMeasure)
+            assert_array_almost_equal(
+                modflow_module.ssi.drain_stage,
+                [-2.51, -2.51, -2.5, -2.5, -2.5, -2.49, -2.49],
+            )
+        elif test_id == "ref":
+            assert modflow_module.ssi is None
 
     @pytest.mark.unittest
     def test_create_modflow_model(
@@ -982,18 +1056,26 @@ class TestModflow:
         assert isinstance(ph, xr.DataArray)
         # TODO: make sure a run with a "COMPLEX" modflow model is used and test result
 
-    @pytest.mark.parametrize("module", ["modflow_module", "initialized_modflow_module"])
-    def test_reset(self, module, request):
+    @pytest.mark.unittest
+    def test_reset(self, modflow_module, initialized_modflow_module):
         """
         Test the reset method of the Modflow module from initial state and after running.
 
         """
-        module = request.getfixturevalue(module)
-        module.reset()
-        assert module._discretization is None
-        assert module._recharge is None
-        assert module._aquifer is None
-        assert module._ditches is None
-        assert module._trenches is None
-        assert module._ssi is None
-        assert module._success_and_failures is None
+        modflow_module.reset()
+        assert modflow_module._discretization is None
+        assert modflow_module._recharge is None
+        assert modflow_module._aquifer is None
+        assert modflow_module._ditches is None
+        assert modflow_module._trenches is None
+        assert modflow_module._ssi is None
+        assert modflow_module._success_and_failures is None
+
+        initialized_modflow_module.reset()
+        assert initialized_modflow_module._discretization is None
+        assert initialized_modflow_module._recharge is None
+        assert initialized_modflow_module._aquifer is None
+        assert initialized_modflow_module._ditches is None
+        assert initialized_modflow_module._trenches is None
+        assert initialized_modflow_module._ssi is None
+        assert initialized_modflow_module._success_and_failures is None

@@ -67,8 +67,8 @@ class TestLhmData:
         assert lhm.cell_area is None
 
     @pytest.mark.unittest
-    def test_load_recharge(self, lhm_data, parcel, start_date, end_date):
-        recharge = lhm_data.load_recharge(parcel, start_date, end_date)
+    def test_load_recharge(self, lhm_data, parcel, settings):
+        recharge = lhm_data.load_recharge(parcel, settings)
         assert isinstance(recharge, components.ModflowInputSeries)
         assert isinstance(recharge.start, float)
         assert isinstance(recharge.series, np.ndarray)
@@ -78,7 +78,7 @@ class TestLhmData:
         with pytest.raises(
             AttributeError, match="Cannot load recharge from LhmData. LhmData.recharge"
         ):
-            lhm_data.load_recharge(parcel, start_date, end_date)
+            lhm_data.load_recharge(parcel, settings)
 
     @pytest.mark.unittest
     def test_load_phreatic_head(self, lhm_data, parcel, model_settings):
@@ -88,7 +88,8 @@ class TestLhmData:
 
         invalid_date_range = model_settings.date_range - pd.Timedelta(2)
         with pytest.raises(
-            KeyError, match="Phreatic head does not have data for the modelling period"
+            MissingDataError,
+            match="Phreatic head does not have data for the modelling period",
         ):
             lhm_data.load_phreatic_head(parcel, invalid_date_range)
 

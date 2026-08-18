@@ -463,9 +463,7 @@ class Modflow(AbstractModule):
         if presets.recharge is not None:
             self._recharge = presets.load_recharge(settings)
         else:
-            self._recharge = lhm.load_recharge(
-                parcel, settings.start_date, settings.end_date
-            )
+            self._recharge = lhm.load_recharge(parcel, settings)
 
     def _load_precip_evap_data(
         self, parcel: Parcel, weather: WeatherData, settings: ModelSettings
