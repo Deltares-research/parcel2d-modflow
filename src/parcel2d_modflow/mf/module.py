@@ -624,7 +624,7 @@ class Modflow(AbstractModule):
         if self.trenches is not None:  # pragma: no cover
             model.set_trenches(self.trenches)
 
-        if "flux" in self.aquifer_method:
+        if self.aquifer_method == "flux":
             model.set_aquifer_flux(self.aquifer, settings.date_range)
 
         return model

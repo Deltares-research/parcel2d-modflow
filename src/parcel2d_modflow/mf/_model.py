@@ -144,7 +144,7 @@ class ModflowModel:
         self.kh = None
         self.kh_over_kv = None
         self.recharge = None
-        self.evt = None
+        self.evapotranspiration = None
         self.ditch_stage = None
         self.aquifer_chd = None
         self.aquifer_wel = None
@@ -156,6 +156,7 @@ class ModflowModel:
         self.npf = None
         self.rch = None
         self.sto = None
+        self.evt = None
 
         # Output
         self.head = None

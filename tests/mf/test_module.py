@@ -19,10 +19,16 @@ from parcel2d_modflow.exceptions import (
 )
 from parcel2d_modflow.mf._model import ModflowModel
 from parcel2d_modflow.mf.module import Modflow
-from parcel2d_modflow.modeldata import GroundwaterData, Presets
+from parcel2d_modflow.modeldata import GroundwaterData, Presets, WeatherData
 
 
 class Params(NamedTuple):
+    """
+    Small utility NamedTuple to parametrize inputs with for the `modflow_module` fixture
+    in tests.
+
+    """
+
     gw_recharge_method: str = "recharge"
     measure: str = "ref"
 
@@ -35,6 +41,11 @@ def start_date():
 @pytest.fixture
 def end_date():
     return pd.to_datetime("31-12-2022", format="%d-%m-%Y")
+
+
+@pytest.fixture
+def settings_with_trenches(model_settings):
+    return model_settings.model_copy(update={"add_trenches": True})
 
 
 @pytest.fixture
@@ -63,71 +74,27 @@ def modflow_module(
 
 @pytest.fixture
 def initialized_modflow_module(
-    modflow_parameters: pd.DataFrame, modflow_executable: str
+    modflow_module,
+    parcel: Parcel,
+    settings_with_trenches: ModelSettings,
+    lhm_data: GroundwaterData,
+    weather_data: WeatherData,
 ):
     """
-    Initialized `Modflow` module with "flux" method and "ssi" measure and containing all
-    required components for a Modflow model run.
+    Modflow module with everything initialized.
 
     """
-    modflow_parameters["entry_drain_resistance (d)"] = 1.0
-    mf = Modflow(
-        parameters=modflow_parameters,
-        modflow_executable=modflow_executable,
-        aquifer_method="flux",
-        gw_recharge_method="recharge",
-        measure="ssi",
+    modflow_module.initialize(
+        parcel, settings_with_trenches, lhm=lhm_data, weather=weather_data
     )
-    mf.parameters.columns = [c.split(" ")[0] for c in mf.parameters.columns]
-    mf._discretization = components.SubsurfaceStructure(
-        np.array([0.2, 0.15, 0.35, 0.5, 0.5, 0.05, 1.0]),
-        np.array([3, 2, 1, 1, 1, 4, 4]),
-        np.array([1, 1, 1, 1, 1, 2, 2]),
-        np.array([0.001, 2200.0]),
-    )
-    mf._recharge = components.ModflowInputSeries(
-        0.00048,
-        np.array(
-            [
-                4.812e-04,
-                2.929e-03,
-                3.808e-05,
-                3.653e-04,
-                3.971e-03,
-                9.328e-04,
-                1.742e-03,
-            ]
-        ),
-    )
-    mf._aquifer = components.ModflowInputSeries(
-        -0.000936,
-        np.array(
-            [
-                -0.000936,
-                -0.000951,
-                -0.000949,
-                -0.000910,
-                -0.000929,
-                -0.000924,
-                -0.000922,
-            ]
-        ),
-    )
-    mf._ditches = components.Ditches(
-        -2.8, 1.0, np.array([-2.5]), pd.DatetimeIndex(["2022-01-01"])
-    )
-    mf._ssi = components.SsiMeasure(
-        -2.7, 1, np.array([-2.2]), pd.DatetimeIndex(["2022-01-01"])
-    )
-    mf._trenches = components.Trenches(-2.3, np.array([1.0]), 1.0)
-    return mf
+    return modflow_module
 
 
 @pytest.fixture
 def initialized_modflow_with_presets(
     modflow_module: Modflow,
     parcel: Parcel,
-    model_settings: ModelSettings,
+    settings_with_trenches: ModelSettings,
     lhm_data: GroundwaterData,
     presets: Presets,
 ):
@@ -136,9 +103,8 @@ def initialized_modflow_with_presets(
     required components for a Modflow model run, based on the fixture `Presets`.
 
     """
-    settings = model_settings.model_copy(update={"add_trenches": True})
     modflow_module.initialize(
-        parcel, settings, lhm=lhm_data, weather=None, presets=presets
+        parcel, settings_with_trenches, lhm=lhm_data, weather=None, presets=presets
     )
     return modflow_module
 
@@ -389,7 +355,12 @@ class TestModflow:
         assert isinstance(modflow_module.recharge.series, np.ndarray)
         assert len(modflow_module.recharge.series) == 7
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(measure="ref"), Params(measure="ssi"), Params(measure="pssi")],
+        ids=["ref", "ssi", "pssi"],
+        indirect=True,
+    )
     def test_load_recharge_with_presets(
         self,
         modflow_module: Modflow,
@@ -405,7 +376,16 @@ class TestModflow:
         assert isinstance(modflow_module.recharge.series, np.ndarray)
         assert len(modflow_module.recharge.series) == 7
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="precip_evap", measure="ref"),
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=["ref", "ssi", "pssi"],
+        indirect=True,
+    )
     def test_load_precip_evap_data(
         self, modflow_module, parcel, model_settings, weather_data
     ):
@@ -422,7 +402,26 @@ class TestModflow:
         assert isinstance(modflow_module.evapotranspiration.series, np.ndarray)
         assert len(modflow_module.evapotranspiration.series) == 7
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="recharge", measure="ref"),
+            Params(gw_recharge_method="recharge", measure="ssi"),
+            Params(gw_recharge_method="recharge", measure="pssi"),
+            Params(gw_recharge_method="precip_evap", measure="ref"),
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=[
+            "recharge-ref",
+            "recharge-ssi",
+            "recharge-pssi",
+            "precip_evap-ref",
+            "precip_evap-ssi",
+            "precip_evap-pssi",
+        ],
+        indirect=True,
+    )
     def test_load_flux(
         self,
         modflow_module: Modflow,
@@ -438,7 +437,26 @@ class TestModflow:
         assert isinstance(modflow_module.aquifer.series, np.ndarray)
         assert len(modflow_module.aquifer.series) == 7
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="recharge", measure="ref"),
+            Params(gw_recharge_method="recharge", measure="ssi"),
+            Params(gw_recharge_method="recharge", measure="pssi"),
+            Params(gw_recharge_method="precip_evap", measure="ref"),
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=[
+            "recharge-ref",
+            "recharge-ssi",
+            "recharge-pssi",
+            "precip_evap-ref",
+            "precip_evap-ssi",
+            "precip_evap-pssi",
+        ],
+        indirect=True,
+    )
     def test_load_flux_with_presets(
         self,
         modflow_module: Modflow,
@@ -448,13 +466,31 @@ class TestModflow:
         presets: Presets,
     ):
         modflow_module._load_aquifer(parcel, lhm_data, model_settings, presets)
-
         assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
         assert np.isclose(modflow_module.aquifer.start, -0.000931428)
         assert isinstance(modflow_module.aquifer.series, np.ndarray)
         assert len(modflow_module.aquifer.series) == 7
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="recharge", measure="ref"),
+            Params(gw_recharge_method="recharge", measure="ssi"),
+            Params(gw_recharge_method="recharge", measure="pssi"),
+            Params(gw_recharge_method="precip_evap", measure="ref"),
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=[
+            "recharge-ref",
+            "recharge-ssi",
+            "recharge-pssi",
+            "precip_evap-ref",
+            "precip_evap-ssi",
+            "precip_evap-pssi",
+        ],
+        indirect=True,
+    )
     def test_load_ditches(
         self,
         modflow_module: Modflow,
@@ -476,7 +512,26 @@ class TestModflow:
             pd.DatetimeIndex(["2022-01-01", "2022-04-01", "2022-10-01"]),
         )
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="recharge", measure="ref"),
+            Params(gw_recharge_method="recharge", measure="ssi"),
+            Params(gw_recharge_method="recharge", measure="pssi"),
+            Params(gw_recharge_method="precip_evap", measure="ref"),
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=[
+            "recharge-ref",
+            "recharge-ssi",
+            "recharge-pssi",
+            "precip_evap-ref",
+            "precip_evap-ssi",
+            "precip_evap-pssi",
+        ],
+        indirect=True,
+    )
     def test_load_ditches_with_presets(
         self,
         modflow_module: Modflow,
@@ -495,7 +550,12 @@ class TestModflow:
             pd.DatetimeIndex(["2022-01-01"]),
         )
 
-    @pytest.mark.unittest
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(measure="ssi"), Params(measure="pssi")],
+        ids=["ssi", "pssi"],
+        indirect=True,
+    )
     def test_load_ssi_pssi(
         self,
         modflow_module: Modflow,
@@ -515,6 +575,7 @@ class TestModflow:
             pd.DatetimeIndex(["2022-01-01", "2022-04-01", "2022-10-01"]),
         )
 
+    @pytest.mark.unittest
     def test_load_ssi_with_presets(
         self,
         modflow_module: Modflow,
@@ -579,80 +640,227 @@ class TestModflow:
         )
 
     @pytest.mark.unittest
-    def test_initialize(
+    def test_initialize_recharge_ref(
         self,
         modflow_module: Modflow,
         parcel: Parcel,
         model_settings: ModelSettings,
         lhm_data: GroundwaterData,
-        request,
     ):
         settings = model_settings.model_copy(update={"add_trenches": True})
         modflow_module.initialize(parcel, settings, lhm=lhm_data)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
-        assert_array_equal(modflow_module.discretization.kvalues, [0.01, 2200.0])
         assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
-        assert modflow_module.recharge.start == 0.00048118845
         assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
-        assert modflow_module.aquifer.start == -0.000936158816
         assert isinstance(modflow_module.ditches, components.Ditches)
-        assert modflow_module.ditches.bottom == -2.8
         assert isinstance(modflow_module.trenches, components.Trenches)
-        assert modflow_module.trenches.depth == -2.3
+        assert modflow_module.ssi is None
+        assert modflow_module.precipitation is None
+        assert modflow_module.evapotranspiration is None
 
-        test_id = request.node.callspec.id  # ref, ssi or pssi
-        if test_id in {"ssi", "pssi"}:
-            assert isinstance(modflow_module.ssi, components.SsiMeasure)
-            assert modflow_module.ssi.drain_depth == -2.7
-        elif test_id == "ref":
-            assert modflow_module.ssi is None
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(measure="ssi"), Params(measure="pssi")],
+        ids=["ssi", "pssi"],
+        indirect=True,
+    )
+    def test_initialize_recharge_ssi_pssi(
+        self,
+        modflow_module: Modflow,
+        parcel: Parcel,
+        model_settings: ModelSettings,
+        lhm_data: GroundwaterData,
+    ):
+        settings = model_settings.model_copy(update={"add_trenches": True})
+        modflow_module.initialize(parcel, settings, lhm=lhm_data)
+        assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
+        assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
+        assert isinstance(modflow_module.ditches, components.Ditches)
+        assert isinstance(modflow_module.trenches, components.Trenches)
+        assert isinstance(modflow_module.ssi, components.SsiMeasure)
+        assert modflow_module.precipitation is None
+        assert modflow_module.evapotranspiration is None
+
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(gw_recharge_method="precip_evap")],
+        ids=["precip_evap"],
+        indirect=True,
+    )
+    def test_initialize_precip_evap_ref(
+        self,
+        modflow_module: Modflow,
+        parcel: Parcel,
+        model_settings: ModelSettings,
+        lhm_data: GroundwaterData,
+        weather_data: WeatherData,
+    ):
+        settings = model_settings.model_copy(update={"add_trenches": True})
+        modflow_module.initialize(parcel, settings, lhm=lhm_data, weather=weather_data)
+        assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
+        assert isinstance(modflow_module.precipitation, components.ModflowInputSeries)
+        assert isinstance(
+            modflow_module.evapotranspiration, components.ModflowInputSeries
+        )
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
+        assert isinstance(modflow_module.ditches, components.Ditches)
+        assert isinstance(modflow_module.trenches, components.Trenches)
+        assert modflow_module.recharge is None
+        assert modflow_module.ssi is None
+
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=["ssi", "pssi"],
+        indirect=True,
+    )
+    def test_initialize_precip_evap_ssi_pssi(
+        self,
+        modflow_module: Modflow,
+        parcel: Parcel,
+        model_settings: ModelSettings,
+        lhm_data: GroundwaterData,
+        weather_data: WeatherData,
+    ):
+        settings = model_settings.model_copy(update={"add_trenches": True})
+        modflow_module.initialize(parcel, settings, lhm=lhm_data, weather=weather_data)
+        assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
+        assert isinstance(modflow_module.precipitation, components.ModflowInputSeries)
+        assert isinstance(
+            modflow_module.evapotranspiration, components.ModflowInputSeries
+        )
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
+        assert isinstance(modflow_module.ditches, components.Ditches)
+        assert isinstance(modflow_module.trenches, components.Trenches)
+        assert modflow_module.recharge is None
+        assert isinstance(modflow_module.ssi, components.SsiMeasure)
 
     @pytest.mark.unittest
-    def test_initialize_with_presets(
+    def test_initialize_with_presets_recharge_ref(
         self,
         modflow_module: Modflow,
         parcel: Parcel,
         model_settings: ModelSettings,
         lhm_data: GroundwaterData,
         presets: Presets,
-        request,
     ):
         modflow_module.initialize(parcel, model_settings, lhm=lhm_data, presets=presets)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
-        assert_array_equal(modflow_module.discretization.kvalues, [0.0001, 2200.0])
         assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
-        assert np.isclose(modflow_module.recharge.start, 0.00149386)
         assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
-        assert np.isclose(modflow_module.aquifer.start, -0.000931428)
         assert isinstance(modflow_module.ditches, components.Ditches)
-        assert_array_almost_equal(modflow_module.ditches.stage, [-2.5014], decimal=4)
+        assert modflow_module.ssi is None
         assert modflow_module.trenches is None
+        assert modflow_module.precipitation is None
+        assert modflow_module.evapotranspiration is None
 
-        test_id = request.node.callspec.id  # ref, ssi or pssi
-        if test_id == "ssi":
-            assert isinstance(modflow_module.ssi, components.SsiMeasure)
-            assert_array_almost_equal(
-                modflow_module.ssi.drain_stage,
-                [-2.51, -2.51, -2.51, -2.5, -2.5, -2.49, -2.49],
-            )
-        elif test_id == "pssi":
-            assert isinstance(modflow_module.ssi, components.SsiMeasure)
-            assert_array_almost_equal(
-                modflow_module.ssi.drain_stage,
-                [-2.51, -2.51, -2.5, -2.5, -2.5, -2.49, -2.49],
-            )
-        elif test_id == "ref":
-            assert modflow_module.ssi is None
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(measure="ssi"), Params(measure="pssi")],
+        ids=["ssi", "pssi"],
+        indirect=True,
+    )
+    def test_initialize_with_presets_recharge_ssi_pssi(
+        self,
+        modflow_module: Modflow,
+        parcel: Parcel,
+        model_settings: ModelSettings,
+        lhm_data: GroundwaterData,
+        presets: Presets,
+    ):
+        modflow_module.initialize(parcel, model_settings, lhm=lhm_data, presets=presets)
+        assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
+        assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
+        assert isinstance(modflow_module.ditches, components.Ditches)
+        assert isinstance(modflow_module.ssi, components.SsiMeasure)
+        assert modflow_module.trenches is None
+        assert modflow_module.precipitation is None
+        assert modflow_module.evapotranspiration is None
 
-    @pytest.mark.unittest
-    def test_create_modflow_model(
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(gw_recharge_method="precip_evap")],
+        ids=["precip_evap"],
+        indirect=True,
+    )
+    def test_initialize_with_presets_precip_evap_ref(
+        self,
+        modflow_module: Modflow,
+        parcel: Parcel,
+        model_settings: ModelSettings,
+        lhm_data: GroundwaterData,
+        weather_data: WeatherData,
+        presets: Presets,
+    ):
+        modflow_module.initialize(
+            parcel, model_settings, lhm=lhm_data, weather=weather_data, presets=presets
+        )
+        assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
+        assert isinstance(modflow_module.precipitation, components.ModflowInputSeries)
+        assert isinstance(
+            modflow_module.evapotranspiration, components.ModflowInputSeries
+        )
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
+        assert isinstance(modflow_module.ditches, components.Ditches)
+        assert modflow_module.recharge is None
+        assert modflow_module.trenches is None
+        assert modflow_module.ssi is None
+
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=["ssi", "pssi"],
+        indirect=True,
+    )
+    def test_initialize_with_presets_precip_evap_ssi_pssi(
+        self,
+        modflow_module: Modflow,
+        parcel: Parcel,
+        model_settings: ModelSettings,
+        lhm_data: GroundwaterData,
+        weather_data: WeatherData,
+        presets: Presets,
+    ):
+        modflow_module.initialize(
+            parcel, model_settings, lhm=lhm_data, weather=weather_data, presets=presets
+        )
+        assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
+        assert isinstance(modflow_module.precipitation, components.ModflowInputSeries)
+        assert isinstance(
+            modflow_module.evapotranspiration, components.ModflowInputSeries
+        )
+        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
+        assert isinstance(modflow_module.ditches, components.Ditches)
+        assert isinstance(modflow_module.ssi, components.SsiMeasure)
+        assert modflow_module.trenches is None
+        assert modflow_module.recharge is None
+
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="recharge", measure="ref"),
+            Params(gw_recharge_method="recharge", measure="ssi"),
+            Params(gw_recharge_method="recharge", measure="pssi"),
+        ],
+        ids=["recharge-ref", "recharge-ssi", "recharge-pssi"],
+        indirect=True,
+    )
+    def test_create_modflow_model_recharge(
         self,
         initialized_modflow_module: Modflow,
         parcel: Parcel,
-        model_settings: ModelSettings,
+        settings_with_trenches: ModelSettings,
     ):
         model = initialized_modflow_module.create_modflow_model(
-            parcel, model_settings, "simple"
+            parcel, settings_with_trenches, "simple"
         )
         assert isinstance(model, ModflowModel)
         assert not model.save_flows
@@ -660,14 +868,16 @@ class TestModflow:
         assert model.output_dir_runs.parent.stem == "A_hVb"
         assert model.working_dir.stem == "modelfiles"
         assert model.working_dir.parent.stem == "A_hVb"
-        assert model.start == model_settings.start_date - pd.Timedelta(days=1)
-        assert model.end == model_settings.end_date + pd.Timedelta(days=1)
-        assert_array_equal(model.time, model_settings.date_range.insert(0, model.start))
+        assert model.start == settings_with_trenches.start_date - pd.Timedelta(days=1)
+        assert model.end == settings_with_trenches.end_date + pd.Timedelta(days=1)
+        assert_array_equal(
+            model.time, settings_with_trenches.date_range.insert(0, model.start)
+        )
         assert np.all(model.duration == 1)
         assert model.parcel_width == 2
         assert model.surface == -2.0
-        assert model.nlayers == 27
-        assert_array_equal(model.dz, [0.05] * 24 + [0.5, 0.05, 1.0])
+        assert model.nlayers == 35
+        assert_array_equal(model.dz, np.repeat([0.05, 0.5, 1.0], [24, 10, 1]))
         assert_array_almost_equal(
             model.bottom,
             [
@@ -696,8 +906,16 @@ class TestModflow:
                 -3.15,
                 -3.2,
                 -3.7,
-                -3.75,
-                -4.75,
+                -4.2,
+                -4.7,
+                -5.2,
+                -5.7,
+                -6.2,
+                -6.7,
+                -7.2,
+                -7.7,
+                -8.2,
+                -9.2,
             ],
         )
         assert_array_almost_equal(
@@ -729,7 +947,15 @@ class TestModflow:
                 -3.15,
                 -3.2,
                 -3.7,
-                -3.75,
+                -4.2,
+                -4.7,
+                -5.2,
+                -5.7,
+                -6.2,
+                -6.7,
+                -7.2,
+                -7.7,
+                -8.2,
             ],
         )
         assert_array_almost_equal(
@@ -760,8 +986,16 @@ class TestModflow:
                 -3.125,
                 -3.175,
                 -3.45,
-                -3.725,
-                -4.25,
+                -3.95,
+                -4.45,
+                -4.95,
+                -5.45,
+                -5.95,
+                -6.45,
+                -6.95,
+                -7.45,
+                -7.95,
+                -8.7,
             ],
         )
         assert_array_equal(model.x, [0.25, 0.75, 1.25, 1.75])
@@ -798,12 +1032,21 @@ class TestModflow:
                 4,
                 5,
                 6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
             ],
         )
         assert isinstance(model.sim, flopy.mf6.MFSimulation)
         assert isinstance(model.tdis, flopy.mf6.ModflowTdis)
         assert isinstance(model.solver, flopy.mf6.ModflowIms)
         assert isinstance(model.gwf, flopy.mf6.ModflowGwf)
+        assert isinstance(model.dis, flopy.mf6.ModflowGwfdis)
         assert isinstance(model.ic, flopy.mf6.ModflowGwfic)
         assert isinstance(model.oc, flopy.mf6.ModflowGwfoc)
         assert model.kh is None
@@ -821,6 +1064,7 @@ class TestModflow:
                 0.001742,
             ],
         )
+        assert model.evapotranspiration is None
         assert model.ditch_stage is None
         assert model.aquifer_chd is None
         assert isinstance(model.aquifer_wel, flopy.mf6.ModflowGwfwel)
@@ -832,6 +1076,238 @@ class TestModflow:
         assert model.npf is None
         assert isinstance(model.rch, flopy.mf6.ModflowGwfrcha)
         assert model.sto is None
+        assert model.evt is None
+        assert model.head is None
+        assert model.budgets is None
+
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="precip_evap", measure="ref"),
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=["precip_evap-ref", "precip_evap-ssi", "precip_evap-pssi"],
+        indirect=True,
+    )
+    def test_create_modflow_model_precip_evap(
+        self,
+        initialized_modflow_module: Modflow,
+        parcel: Parcel,
+        settings_with_trenches: ModelSettings,
+    ):
+        model = initialized_modflow_module.create_modflow_model(
+            parcel, settings_with_trenches, "simple"
+        )
+        assert isinstance(model, ModflowModel)
+        assert not model.save_flows
+        assert model.output_dir_runs.stem == "runs"
+        assert model.output_dir_runs.parent.stem == "A_hVb"
+        assert model.working_dir.stem == "modelfiles"
+        assert model.working_dir.parent.stem == "A_hVb"
+        assert model.start == settings_with_trenches.start_date - pd.Timedelta(days=1)
+        assert model.end == settings_with_trenches.end_date + pd.Timedelta(days=1)
+        assert_array_equal(
+            model.time, settings_with_trenches.date_range.insert(0, model.start)
+        )
+        assert np.all(model.duration == 1)
+        assert model.parcel_width == 2
+        assert model.surface == -2.0
+        assert model.nlayers == 35
+        assert_array_equal(model.dz, np.repeat([0.05, 0.5, 1.0], [24, 10, 1]))
+        assert_array_almost_equal(
+            model.bottom,
+            [
+                -2.05,
+                -2.1,
+                -2.15,
+                -2.2,
+                -2.25,
+                -2.3,
+                -2.35,
+                -2.4,
+                -2.45,
+                -2.5,
+                -2.55,
+                -2.6,
+                -2.65,
+                -2.7,
+                -2.75,
+                -2.8,
+                -2.85,
+                -2.9,
+                -2.95,
+                -3.0,
+                -3.05,
+                -3.1,
+                -3.15,
+                -3.2,
+                -3.7,
+                -4.2,
+                -4.7,
+                -5.2,
+                -5.7,
+                -6.2,
+                -6.7,
+                -7.2,
+                -7.7,
+                -8.2,
+                -9.2,
+            ],
+        )
+        assert_array_almost_equal(
+            model.top,
+            [
+                -2.0,
+                -2.05,
+                -2.1,
+                -2.15,
+                -2.2,
+                -2.25,
+                -2.3,
+                -2.35,
+                -2.4,
+                -2.45,
+                -2.5,
+                -2.55,
+                -2.6,
+                -2.65,
+                -2.7,
+                -2.75,
+                -2.8,
+                -2.85,
+                -2.9,
+                -2.95,
+                -3.0,
+                -3.05,
+                -3.1,
+                -3.15,
+                -3.2,
+                -3.7,
+                -4.2,
+                -4.7,
+                -5.2,
+                -5.7,
+                -6.2,
+                -6.7,
+                -7.2,
+                -7.7,
+                -8.2,
+            ],
+        )
+        assert_array_almost_equal(
+            model.z,
+            [
+                -2.025,
+                -2.075,
+                -2.125,
+                -2.175,
+                -2.225,
+                -2.275,
+                -2.325,
+                -2.375,
+                -2.425,
+                -2.475,
+                -2.525,
+                -2.575,
+                -2.625,
+                -2.675,
+                -2.725,
+                -2.775,
+                -2.825,
+                -2.875,
+                -2.925,
+                -2.975,
+                -3.025,
+                -3.075,
+                -3.125,
+                -3.175,
+                -3.45,
+                -3.95,
+                -4.45,
+                -4.95,
+                -5.45,
+                -5.95,
+                -6.45,
+                -6.95,
+                -7.45,
+                -7.95,
+                -8.7,
+            ],
+        )
+        assert_array_equal(model.x, [0.25, 0.75, 1.25, 1.75])
+        assert model.ncol == 4
+        assert model.dx == 0.5
+        assert model.dy == 1
+        assert_array_equal(
+            model.vertical_index,
+            [
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+            ],
+        )
+        assert isinstance(model.sim, flopy.mf6.MFSimulation)
+        assert isinstance(model.tdis, flopy.mf6.ModflowTdis)
+        assert isinstance(model.solver, flopy.mf6.ModflowIms)
+        assert isinstance(model.gwf, flopy.mf6.ModflowGwf)
+        assert isinstance(model.dis, flopy.mf6.ModflowGwfdis)
+        assert isinstance(model.ic, flopy.mf6.ModflowGwfic)
+        assert isinstance(model.oc, flopy.mf6.ModflowGwfoc)
+        assert model.kh is None
+        assert model.kh_over_kv is None
+        assert_array_almost_equal(
+            model.recharge,
+            [0.00214463, 0.0003, 0.0132, 0.0000025, 0.0003, 0.0054, 0.0000025, 0.0033],
+        )
+        assert_array_almost_equal(
+            model.evapotranspiration,
+            [0.00028525, 0.0003, 0.0003, 0.0003, 0.0002, 0.0002, 0.0004, 0.0002],
+        )
+        assert model.ditch_stage is None
+        assert model.aquifer_chd is None
+        assert isinstance(model.aquifer_wel, flopy.mf6.ModflowGwfwel)
+        assert isinstance(model.riv, flopy.mf6.ModflowGwfriv)
+        assert isinstance(model.riv_drn, flopy.mf6.ModflowGwfdrn)
+        assert isinstance(model.trn, flopy.mf6.ModflowGwfdrn)
+        assert model.ssi is None
+        assert model.wel is None
+        assert model.npf is None
+        assert isinstance(model.rch, flopy.mf6.ModflowGwfrcha)
+        assert model.sto is None
+        assert isinstance(model.evt, flopy.mf6.ModflowGwfevt)
         assert model.head is None
         assert model.budgets is None
 
@@ -844,24 +1320,24 @@ class TestModflow:
         self,
         initialized_modflow_module: Modflow,
         parcel: Parcel,
-        model_settings: ModelSettings,
+        settings_with_trenches: ModelSettings,
     ):
         result = np.full(
             (
                 len(initialized_modflow_module.parameters),
-                len(model_settings.date_range),
+                len(settings_with_trenches.date_range),
                 len(parcel.discretization.xcol),
             ),
             np.nan,
         )
         model = initialized_modflow_module.create_modflow_model(
-            parcel, model_settings, "SIMPLE"
+            parcel, settings_with_trenches, "SIMPLE"
         )
         result, succes, failure = initialized_modflow_module.run_modflow_model(
             model,
             initialized_modflow_module.parameters,
             result,
-            model_settings.start_date,
+            settings_with_trenches.start_date,
         )
         assert isinstance(result, np.ndarray)
         assert not np.isnan(result).all()  # Result should not contain any NaN values
@@ -873,40 +1349,38 @@ class TestModflow:
         reason="Can only run on Windows with .exe for now",
     )
     @pytest.mark.unittest
-    def test_run(
+    def test_run_recharge_ref(
         self,
         initialized_modflow_module: Modflow,
         parcel: Parcel,
-        model_settings: ModelSettings,
+        settings_with_trenches: ModelSettings,
     ):
-        initialized_modflow_module._ssi = None  # Ensure no SSI measure is set
-        ph = initialized_modflow_module.run(parcel, model_settings)
+        ph = initialized_modflow_module.run(parcel, settings_with_trenches)
         assert isinstance(ph, xr.DataArray)
         assert_array_equal(ph["runs"], [1, 2])
-        assert_array_equal(ph["time"], model_settings.date_range)
+        assert_array_equal(ph["time"], settings_with_trenches.date_range)
         assert_array_equal(ph["x"], [0.25, 0.75, 1.25, 1.75])
         assert_array_almost_equal(
-            ph.sel(runs=1),
+            ph,
             [
-                [-2.5010772, -2.50139866, -2.50139873, -2.50107714],
-                [-2.49710463, -2.49671128, -2.49671129, -2.49710462],
-                [-2.49965962, -2.49960775, -2.49960762, -2.49965964],
-                [-2.50035993, -2.50047768, -2.50047766, -2.50035993],
-                [-2.49490066, -2.4940802, -2.49408019, -2.49490068],
-                [-2.49695734, -2.49635451, -2.49635446, -2.49695735],
-                [-2.49668932, -2.4960621, -2.49606213, -2.49668941],
-            ],
-        )
-        assert_array_almost_equal(
-            ph.sel(runs=2),
-            [
-                [-2.50096376, -2.50136418, -2.5013643, -2.50096378],
-                [-2.49755466, -2.49725276, -2.49725277, -2.49755452],
-                [-2.49951371, -2.49944918, -2.49944911, -2.49951367],
-                [-2.50011765, -2.50019716, -2.50019724, -2.50011764],
-                [-2.49537993, -2.49455562, -2.49455556, -2.49537994],
-                [-2.49691154, -2.49619796, -2.4961979, -2.49691142],
-                [-2.49661376, -2.4958413, -2.49584127, -2.49661374],
+                [
+                    [-2.50107595, -2.50139723, -2.50139732, -2.50107601],
+                    [-2.49710447, -2.49671107, -2.49671109, -2.49710448],
+                    [-2.49965963, -2.49960781, -2.49960767, -2.49965964],
+                    [-2.50035984, -2.50047761, -2.50047758, -2.50035987],
+                    [-2.49490236, -2.49408216, -2.49408216, -2.49490236],
+                    [-2.49695801, -2.49635534, -2.49635529, -2.49695801],
+                    [-2.49668988, -2.49606285, -2.49606287, -2.49668996],
+                ],
+                [
+                    [-2.50096249, -2.50136244, -2.50136252, -2.50096258],
+                    [-2.49755454, -2.49725243, -2.49725245, -2.49755458],
+                    [-2.49951376, -2.49944923, -2.49944918, -2.49951375],
+                    [-2.50011754, -2.50019712, -2.50019711, -2.50011753],
+                    [-2.49538123, -2.49455722, -2.49455717, -2.4953812],
+                    [-2.49691206, -2.4961987, -2.49619868, -2.49691204],
+                    [-2.49661409, -2.49584181, -2.49584181, -2.4966141],
+                ],
             ],
         )
         assert_array_equal(
@@ -920,40 +1394,141 @@ class TestModflow:
         not sys.platform.startswith("win"),
         reason="Can only run on Windows with .exe for now",
     )
-    @pytest.mark.unittest
-    def test_run_with_ssi(
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(measure="ssi"), Params(measure="pssi")],
+        ids=["recharge-ssi", "recharge-pssi"],
+        indirect=True,
+    )
+    def test_run_recharge_ssi_pssi(
         self,
         initialized_modflow_module: Modflow,
         parcel: Parcel,
-        model_settings: ModelSettings,
+        settings_with_trenches: ModelSettings,
     ):
-        ph = initialized_modflow_module.run(parcel, model_settings)
+        ph = initialized_modflow_module.run(parcel, settings_with_trenches)
         assert isinstance(ph, xr.DataArray)
         assert_array_equal(ph["runs"], [1, 2])
-        assert_array_equal(ph["time"], model_settings.date_range)
+        assert_array_equal(ph["time"], settings_with_trenches.date_range)
         assert_array_equal(ph["x"], [0.25, 0.75, 1.25, 1.75])
         assert_array_almost_equal(
-            ph.sel(runs=1),
+            ph,
             [
-                [-2.4446654, -2.42979146, -2.42161579, -2.43481534],
-                [-2.44047038, -2.4254349, -2.41719933, -2.43079038],
-                [-2.44331319, -2.42839159, -2.42023458, -2.43356218],
-                [-2.44414608, -2.42925448, -2.42109936, -2.43434478],
-                [-2.43839044, -2.42277886, -2.41502444, -2.42880819],
-                [-2.4406892, -2.42566771, -2.41750098, -2.43107061],
-                [-2.44046672, -2.42543738, -2.41725782, -2.4308492],
+                [
+                    [-2.44465405, -2.42978389, -2.42161424, -2.43481827],
+                    [-2.44046105, -2.42542947, -2.41719975, -2.43079498],
+                    [-2.44330441, -2.42838677, -2.42023568, -2.43356738],
+                    [-2.44413824, -2.42925074, -2.42110156, -2.43435125],
+                    [-2.43838415, -2.42277672, -2.41502787, -2.42881557],
+                    [-2.44068185, -2.42566431, -2.41750342, -2.43107701],
+                    [-2.44045865, -2.42543322, -2.41725941, -2.4308548],
+                ],
+                [
+                    [-2.44762842, -2.42963348, -2.41996755, -2.43643021],
+                    [-2.44383633, -2.42565944, -2.41590291, -2.43278434],
+                    [-2.44611177, -2.42804689, -2.41839448, -2.43502253],
+                    [-2.44689497, -2.42886709, -2.41922723, -2.43576622],
+                    [-2.44176897, -2.42292092, -2.41371496, -2.43082283],
+                    [-2.44348649, -2.42485539, -2.41562306, -2.43253649],
+                    [-2.44323638, -2.4245773, -2.41535371, -2.43229749],
+                ],
             ],
         )
+        assert_array_equal(
+            initialized_modflow_module.success_and_failures.success_simple, [0, 1]
+        )
+        assert not initialized_modflow_module.success_and_failures.failure_simple
+        assert not initialized_modflow_module.success_and_failures.success_complex
+        assert not initialized_modflow_module.success_and_failures.failure_complex
+
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [Params(gw_recharge_method="precip_evap", measure="ref")],
+        ids=["precip_evap-ref"],
+        indirect=True,
+    )
+    def test_run_precip_evap_ref(
+        self,
+        initialized_modflow_module: Modflow,
+        parcel: Parcel,
+        settings_with_trenches: ModelSettings,
+    ):
+        ph = initialized_modflow_module.run(parcel, settings_with_trenches)
+        assert isinstance(ph, xr.DataArray)
+        assert_array_equal(ph["runs"], [1, 2])
+        assert_array_equal(ph["time"], settings_with_trenches.date_range)
+        assert_array_equal(ph["x"], [0.25, 0.75, 1.25, 1.75])
         assert_array_almost_equal(
-            ph.sel(runs=2),
+            ph,
             [
-                [-2.4476403, -2.42964139, -2.4199689, -2.43642708],
-                [-2.44384635, -2.42566551, -2.41590274, -2.43277981],
-                [-2.44612103, -2.42805215, -2.41839353, -2.43501726],
-                [-2.44690372, -2.4288718, -2.41922566, -2.43576035],
-                [-2.44177618, -2.42292396, -2.41371213, -2.43081588],
-                [-2.44349476, -2.42485957, -2.41562128, -2.43253072],
-                [-2.44324485, -2.42458173, -2.41535224, -2.43229181],
+                [
+                    [-2.49911341, -2.49889499, -2.49889462, -2.49911333],
+                    [-2.47900918, -2.47395299, -2.47395285, -2.47900912],
+                    [-2.49053326, -2.4884705, -2.48846945, -2.49053321],
+                    [-2.49591953, -2.49491807, -2.49491736, -2.49591942],
+                    [-2.49026438, -2.4884665, -2.48846604, -2.49026435],
+                    [-2.4966863, -2.49588115, -2.49588056, -2.49668625],
+                    [-2.49422469, -2.49312767, -2.4931275, -2.49422467],
+                ],
+                [
+                    [-2.49848065, -2.49802573, -2.49802536, -2.49848031],
+                    [-2.48105207, -2.47732623, -2.47732613, -2.48105194],
+                    [-2.49013207, -2.48751648, -2.48751614, -2.49013201],
+                    [-2.49485517, -2.49328968, -2.49328929, -2.49485512],
+                    [-2.49020037, -2.48794201, -2.48794167, -2.49020036],
+                    [-2.49570492, -2.49441937, -2.494419, -2.49570487],
+                    [-2.49382813, -2.49234395, -2.49234386, -2.49382809],
+                ],
+            ],
+        )
+        assert_array_equal(
+            initialized_modflow_module.success_and_failures.success_simple, [0, 1]
+        )
+        assert not initialized_modflow_module.success_and_failures.failure_simple
+        assert not initialized_modflow_module.success_and_failures.success_complex
+        assert not initialized_modflow_module.success_and_failures.failure_complex
+
+    @pytest.mark.parametrize(
+        "modflow_module",
+        [
+            Params(gw_recharge_method="precip_evap", measure="ssi"),
+            Params(gw_recharge_method="precip_evap", measure="pssi"),
+        ],
+        ids=["precip_evap-ssi", "precip_evap-pssi"],
+        indirect=True,
+    )
+    def test_run_precip_evap_ssi_pssi(
+        self,
+        initialized_modflow_module: Modflow,
+        parcel: Parcel,
+        settings_with_trenches: ModelSettings,
+    ):
+        ph = initialized_modflow_module.run(parcel, settings_with_trenches)
+        assert isinstance(ph, xr.DataArray)
+        assert_array_equal(ph["runs"], [1, 2])
+        assert_array_equal(ph["time"], settings_with_trenches.date_range)
+        assert_array_equal(ph["x"], [0.25, 0.75, 1.25, 1.75])
+        assert_array_almost_equal(
+            ph,
+            [
+                [
+                    [-2.44305065, -2.42812788, -2.41999425, -2.43335067],
+                    [-2.4207954, -2.40597247, -2.3996968, -2.41258681],
+                    [-2.43502873, -2.41899526, -2.41129606, -2.42455926],
+                    [-2.44038952, -2.42498675, -2.41721667, -2.43089842],
+                    [-2.43439634, -2.41837451, -2.41090837, -2.42372038],
+                    [-2.44095901, -2.42596455, -2.41786147, -2.43142858],
+                    [-2.43827138, -2.42265922, -2.41497076, -2.42877587],
+                ],
+                [
+                    [-2.44537456, -2.4272835, -2.41766375, -2.43437464],
+                    [-2.42449045, -2.40686912, -2.39956099, -2.41506174],
+                    [-2.43690833, -2.41738584, -2.40819104, -2.42477969],
+                    [-2.44191633, -2.42306762, -2.41396387, -2.43121095],
+                    [-2.43695863, -2.41749747, -2.40866989, -2.42453964],
+                    [-2.44275383, -2.42403506, -2.41494798, -2.43196184],
+                    [-2.44070648, -2.421731, -2.41269011, -2.42992241],
+                ],
             ],
         )
         assert_array_equal(
@@ -972,35 +1547,38 @@ class TestModflow:
         self,
         initialized_modflow_with_presets: Modflow,
         parcel: Parcel,
-        model_settings: ModelSettings,
+        settings_with_trenches: ModelSettings,
     ):
-        ph = initialized_modflow_with_presets.run(parcel, model_settings)
+        """
+        NOTE: We only test the setup "recharge-ref" here because the implementation of
+        `Presets` will be changed.
+        """
+        ph = initialized_modflow_with_presets.run(parcel, settings_with_trenches)
         assert isinstance(ph, xr.DataArray)
         assert_array_equal(ph["runs"], [1, 2])
-        assert_array_equal(ph["time"], model_settings.date_range)
+        assert_array_equal(ph["time"], settings_with_trenches.date_range)
         assert_array_equal(ph["x"], [0.25, 0.75, 1.25, 1.75])
         assert_array_almost_equal(
-            ph.sel(runs=1),
+            ph,
             [
-                [-2.50158, -2.50198728, -2.50241515, -2.50195879],
-                [-2.49904451, -2.49906222, -2.49956854, -2.49945739],
-                [-2.50152638, -2.50186895, -2.50228086, -2.5018599],
-                [-2.50172063, -2.50186309, -2.5018308, -2.50173075],
-                [-2.49692264, -2.49624231, -2.49631785, -2.49698296],
-                [-2.49811521, -2.49720866, -2.49683015, -2.49783992],
-                [-2.49755809, -2.49650543, -2.49608378, -2.49722363],
-            ],
-        )
-        assert_array_almost_equal(
-            ph.sel(runs=2),
-            [
-                [-2.50093972, -2.50127647, -2.50190664, -2.50141068],
-                [-2.49887416, -2.49888316, -2.49951574, -2.4993537],
-                [-2.5009328, -2.50121775, -2.50172959, -2.50131577],
-                [-2.50136088, -2.50148415, -2.50150534, -2.50142637],
-                [-2.49716827, -2.49644758, -2.49652112, -2.49723229],
-                [-2.49800519, -2.49693957, -2.49651785, -2.49773455],
-                [-2.49747761, -2.49620739, -2.49571642, -2.49712773],
+                [
+                    [-2.50033436, -2.50014994, -2.5001501, -2.50033439],
+                    [-2.4976396, -2.49695894, -2.49695892, -2.49763963],
+                    [-2.50036577, -2.50015707, -2.50015705, -2.50036583],
+                    [-2.50125764, -2.50124303, -2.50124303, -2.50125764],
+                    [-2.49655613, -2.49572704, -2.49572702, -2.49655613],
+                    [-2.49859244, -2.49801355, -2.49801346, -2.49859245],
+                    [-2.49840011, -2.49781375, -2.49781374, -2.4984001],
+                ],
+                [
+                    [-2.49998772, -2.49963707, -2.49963706, -2.4999877],
+                    [-2.49750818, -2.49669313, -2.49669296, -2.49750816],
+                    [-2.4999642, -2.49958003, -2.49957984, -2.49996417],
+                    [-2.50069524, -2.50053607, -2.50053602, -2.50069522],
+                    [-2.49668631, -2.49574152, -2.49574147, -2.49668628],
+                    [-2.49828462, -2.49752395, -2.49752392, -2.49828461],
+                    [-2.49810956, -2.49732764, -2.49732764, -2.49810955],
+                ],
             ],
         )
         assert_array_equal(
@@ -1027,9 +1605,9 @@ class TestModflow:
         self,
         initialized_modflow_module: Modflow,
         parcel: Parcel,
-        model_settings: ModelSettings,
+        settings_with_trenches: ModelSettings,
     ):
-        settings = model_settings.model_copy(update={"dimension": "1D"})
+        settings = settings_with_trenches.model_copy(update={"dimension": "1D"})
         with pytest.raises(
             NotImplementedError, match="1D Modflow model not implemented"
         ):
