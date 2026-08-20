@@ -33,6 +33,8 @@ pooch = "*"
 pre-commit = "*"
 pyinstrument = "*"
 deptry = "*"
+ipykernel = ">=7.3.0,<8"
+pip = ">=26.2.1,<27"
 
 [pypi-dependencies]
 parcel2d_modflow = { path = ".", editable = true }
