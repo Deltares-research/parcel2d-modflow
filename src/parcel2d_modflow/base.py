@@ -138,11 +138,19 @@ class Parcel:
             raise ValueError(
                 f"Parcel width must be between 1 and 300 meters. Got {width}."
             )
-        if trench_depth is not None and not (0.1 <= trench_depth <= 0.8):
+        if (
+            trench_depth is not None
+            and not (0.1 <= trench_depth <= 0.8)
+            and not np.isnan(trench_depth)
+        ):
             raise ValueError(
                 f"Trench depth must be between 0.1 and 0.8 meters. Got {trench_depth}."
             )
-        if drain_depth is not None and not (0 <= drain_depth <= 1.2):
+        if (
+            drain_depth is not None
+            and not (0 <= drain_depth <= 1.2)
+            and not np.isnan(drain_depth)
+        ):
             raise ValueError(
                 f"Drain depth must be between 0 and 1.2 meters. Got {drain_depth}."
             )

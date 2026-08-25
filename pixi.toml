@@ -25,6 +25,7 @@ pyogrio = "*"
 h5netcdf = "*"
 xarray = "*"
 rioxarray = "*"
+sqlalchemy = "*"
 loguru = "*"
 pytest = "*"
 pytest-cov = "*"
@@ -35,9 +36,13 @@ pyinstrument = "*"
 deptry = "*"
 ipykernel = ">=7.3.0,<8"
 pip = ">=26.2.1,<27"
+psycopg2 = ">=2.9.12,<3"
+python-dotenv = ">=1.2.3,<2"
 
 [pypi-dependencies]
 parcel2d_modflow = { path = ".", editable = true }
+psycopg = { version = "*", extras = ["binary"] }
+python-dotenv = "*"
 
 [feature.docs.dependencies]
 sphinx = "*"

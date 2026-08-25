@@ -188,8 +188,12 @@ def _run_calibration_parcel(index: int, log_level: str):
         index=index,
     )
     parcels = _WORKER_DATA.parcels.loc[[index]]
-    settings = _WORKER_SETTINGS
-    # settings = _WORKER_SETTINGS.model_copy(update={"start_date": 1, "end_date": 1})
+    settings = _WORKER_SETTINGS.model_copy(
+        update={
+            "start_date": parcels["start_date"].iloc[0],
+            "end_date": parcels["end_date"].iloc[0],
+        }
+    )
     return run_parcels(
         parcels=parcels,
         settings=settings,

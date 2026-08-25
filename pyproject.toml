@@ -10,6 +10,7 @@ dependencies = [
     "pydantic",
     "loguru",
     "rioxarray",
+    "sqlalchemy",
     "shapely",
     "xarray",
 ]

@@ -1,10 +1,11 @@
 from typing import Optional
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from shapely import from_wkt
 
-from parcel2d_modflow.preprocessing.time_range import select_time_range
+from parcel2d_modflow.preprocessing.calibration.time_range import select_time_range
 
 
 # %%
@@ -13,19 +14,23 @@ def preprocess_calibration_parcels(
     flux_data=None,
     recharge_data=None,
     weather_data=None,
+    piez_df=None,
+    ditch_df=None,
 ) -> gpd.GeoDataFrame:
-    """ """
-
-    parcel_df = calibration_wells_df.groupby("aan_id").first().reset_index()
-    parcel_df = rename_parcel_columns(parcel_df)
+    """
+    Preprocess calibration parcels by renaming columns, selecting the valid time range, and creating a GeoDataFrame.
+    """
+    agg_funcs = {col: "first" for col in calibration_wells_df.columns}
+    agg_funcs.update({"start_date": "min", "end_date": "max", "well_id": set})
+    parcel_df = calibration_wells_df.groupby("aan_id").agg(agg_funcs)
 
     parcel_df = select_time_range(
-        parcel_df,
-        flux_data,
-        recharge_data,
-        weather_data,
+        parcel_df, flux_data, recharge_data, weather_data, piez_df, ditch_df
     )
+
     parcel_gdf = create_parcel_gdf(parcel_df)
+    parcel_gdf = rename_parcel_columns(parcel_gdf)
+    parcel_gdf = parcel_gdf.drop(columns=["geometry"]).reset_index(drop=True)
     return parcel_gdf
 
 
