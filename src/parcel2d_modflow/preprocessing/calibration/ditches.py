@@ -43,7 +43,9 @@ def load_parcel_ditches_from_db(gdf, connection) -> pd.DataFrame:
     interpolated_ditches_df = interpolate_ditch_values(
         daily_ditches_df, method="linear"
     )
-    return interpolated_ditches_df
+    interpolated_ditches_df.columns.name = "ditch_id"
+    interpolated_ditches_da = interpolated_ditches_df.stack().to_xarray()
+    return interpolated_ditches_da
 
 
 def interpolate_ditch_values(df, method) -> pd.DataFrame:

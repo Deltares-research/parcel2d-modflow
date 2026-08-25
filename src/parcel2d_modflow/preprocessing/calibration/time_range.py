@@ -1,8 +1,8 @@
 # %%
 from typing import Any, Optional, Sequence
 
-import numpy as np
 import pandas as pd
+import xarray as xr
 
 
 def select_time_range(
@@ -10,8 +10,8 @@ def select_time_range(
     flux_data: Optional[Any],
     recharge_data: Optional[Any],
     weather_data: Optional[Any],
-    piez_df: Optional[Any],
-    ditch_df: Optional[Any],
+    piez_da: Optional[Any],
+    ditch_da: Optional[Any],
 ) -> pd.DataFrame:
     """
     Select the valid time range based on available data sources.
@@ -20,12 +20,16 @@ def select_time_range(
     ----------
     parcel_df : pd.DataFrame
         Parcel data with start_time and end_time columns
-    flux_data : object or None
+    flux_data : xr.DataArray or None
         Flux data object containing flux time series
-    recharge_data : object or None
+    recharge_data : xr.DataArray or None
         Recharge data object containing recharge time series
-    weather_data : object or None
+    weather_data : pd.DataFrame or None
         Weather data object containing precipitation and evapotranspiration attributes
+    piez_da : xr.DataArray or None
+        Piezometer data array containing piezometer measurements
+    ditch_da : xr.DataArray or None
+        Ditch data array containing ditch measurements
     Returns
     -------
     pd.DataFrame
@@ -48,13 +52,13 @@ def select_time_range(
         start_time, end_time = update_time_range_from_inputdata(
             weather_data, start_time, end_time
         )
-    if piez_df is not None:
+    if piez_da is not None:
         start_time, end_time = update_time_range_from_measurements(
-            parcel_df, piez_df, "well_id", start_time, end_time
+            parcel_df, piez_da, "well_id", start_time, end_time
         )
-    if ditch_df is not None:
+    if ditch_da is not None:
         start_time, end_time = update_time_range_from_measurements(
-            parcel_df, ditch_df, "ditch_id", start_time, end_time
+            parcel_df, ditch_da, "ditch_id", start_time, end_time
         )
 
     parcel_df["start_date"] = start_time
@@ -64,7 +68,7 @@ def select_time_range(
 
 def update_time_range_from_measurements(
     parcel_df: pd.DataFrame,
-    measurements_df: pd.DataFrame,
+    measurements_da: xr.DataArray,
     meas_name_column: str,
     start_time: pd.Series,
     end_time: pd.Series,
@@ -76,9 +80,14 @@ def update_time_range_from_measurements(
     for aan_id, meas_id in parcel_df[meas_name_column].items():
         if isinstance(meas_id, set):
             meas_id = list(meas_id)
-        measurement_data = measurements_df[meas_id]
-        st = pd.Timestamp(measurement_data.first_valid_index())
-        et = pd.Timestamp(measurement_data.last_valid_index())
+        measurement_data = measurements_da.sel({meas_name_column: meas_id})
+        measurement_data = measurement_data.dropna(dim="datetime", how="all")
+        if measurement_data.size == 0:
+            measurement_data = measurement_data.assign_coords(
+                datetime=pd.to_datetime("2020-01-01")
+            )
+        st = pd.Timestamp(measurement_data.datetime.min().values)
+        et = pd.Timestamp(measurement_data.datetime.max().values)
         start_time[aan_id] = max(start_time[aan_id], st)
         end_time[aan_id] = min(end_time[aan_id], et)
     return start_time, end_time

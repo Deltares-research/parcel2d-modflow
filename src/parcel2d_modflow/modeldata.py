@@ -43,6 +43,7 @@ class ModelData(NamedTuple):
     groundwater: GroundwaterData
     soilmap: Soilmap
     parameters: pd.DataFrame
+    presets: Presets = None
 
 
 @dataclass(repr=False, slots=True)
@@ -68,10 +69,19 @@ class GroundwaterData:
     head: xr.DataArray = None
     cell_area: tuple[int | float, int | float] = field(init=False, default=None)
 
+    @staticmethod
+    def _as_dataarray(data):
+        import xarray as xr
+
+        if isinstance(data, xr.Dataset) and len(data.data_vars) == 1:
+            return data[next(iter(data.data_vars))]
+        return data
+
     def __post_init__(self):
         import rioxarray
 
         if self.flux is not None:
+            self.flux = self._as_dataarray(self.flux)
             try:
                 xsize, ysize = self.flux.rio.resolution()
                 self.cell_area = abs(xsize) * abs(ysize)
@@ -176,6 +186,7 @@ class GroundwaterData:
                 f"Cannot load aquifer flux from LhmData. LhmData.flux = {self.flux}."
             )
 
+        self.flux = self._as_dataarray(self.flux)
         flux_xy = self.flux.sel(x=parcel.x, y=parcel.y, method="nearest")
 
         start_date = settings.start_date
@@ -213,11 +224,7 @@ class GroundwaterData:
                 f"Cannot load recharge from LhmData. LhmData.recharge = {self.recharge}."
             )
 
-        if self.recharge is None:
-            raise AttributeError(
-                f"Cannot load recharge from LhmData. LhmData.recharge = {self.recharge}."
-            )
-
+        self.recharge = self._as_dataarray(self.recharge)
         recharge = self.recharge.sel(x=parcel.x, y=parcel.y, method="nearest")
 
         mm_to_m = 1000
@@ -257,6 +264,7 @@ class GroundwaterData:
                 f"Cannot load phreatic head from LhmData. LhmData.head = {self.head}."
             )
 
+        self.head = self._as_dataarray(self.head)
         head = self.head.sel(x=parcel.x, y=parcel.y, method="nearest")
 
         try:
@@ -482,7 +490,9 @@ class Presets:
         start = np.mean(series[:30])
         return components.Aquifer(start, series)
 
-    def load_ditches(self, settings: ModelSettings, surface_level: int | float) -> None:
+    def load_ditches(
+        self, settings: ModelSettings, ditch_id: str, surface_level: int | float
+    ) -> None:
         """
         Load a time series of ditch stage data for the Modflow model for a required modelling
         period. This is used to set the ditch component in the Modflow model.
@@ -492,6 +502,8 @@ class Presets:
         settings : :class:`~parcel2d_modflow.base.ModelSettings`
             General settings for the model run containing the date range to load the
             ditch stage data for.
+        ditch_id : str
+            Ditch ID of the parcel for which the ditch stage data is loaded.
         surface_level : int | float
             Surface level of a parcel (m +NAP) the ditch stage data is loaded for.
 
@@ -508,7 +520,10 @@ class Presets:
 
         """
         try:
-            ditch_stage = self.ditch_stage.loc[settings.date_range]
+            ditch_stage = self.ditch_stage.sel(
+                ditch_id=ditch_id, time=settings.date_range
+            )
+            ditch_stage = ditch_stage.to_series()
         except KeyError:
             raise MissingDataError(
                 f"{self.__class__.__name__}.ditch_stage does not have daily data for "

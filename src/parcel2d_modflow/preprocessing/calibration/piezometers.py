@@ -37,4 +37,6 @@ def load_parcel_piezometers_from_db(gdf, connection) -> pd.DataFrame:
         piez_df.append(piez_stage)
     piezs_df = pd.concat(piez_df)
     daily_piezs_df = piezs_df.resample("D").mean().astype(float)
-    return daily_piezs_df
+    daily_piezs_df.columns.name = "well_id"
+    daily_piezs_da = daily_piezs_df.stack().to_xarray()
+    return daily_piezs_da

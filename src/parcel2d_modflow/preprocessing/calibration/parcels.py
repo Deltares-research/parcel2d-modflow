@@ -1,3 +1,4 @@
+# %%
 from typing import Optional
 
 import geopandas as gpd
@@ -14,8 +15,8 @@ def preprocess_calibration_parcels(
     flux_data=None,
     recharge_data=None,
     weather_data=None,
-    piez_df=None,
-    ditch_df=None,
+    piez_da=None,
+    ditch_da=None,
 ) -> gpd.GeoDataFrame:
     """
     Preprocess calibration parcels by renaming columns, selecting the valid time range, and creating a GeoDataFrame.
@@ -25,7 +26,7 @@ def preprocess_calibration_parcels(
     parcel_df = calibration_wells_df.groupby("aan_id").agg(agg_funcs)
 
     parcel_df = select_time_range(
-        parcel_df, flux_data, recharge_data, weather_data, piez_df, ditch_df
+        parcel_df, flux_data, recharge_data, weather_data, piez_da, ditch_da
     )
 
     parcel_gdf = create_parcel_gdf(parcel_df)

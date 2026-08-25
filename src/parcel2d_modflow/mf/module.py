@@ -428,7 +428,9 @@ class Modflow(AbstractModule):
 
         """
         if presets.ditch_stage is not None:
-            self._ditches = presets.load_ditches(settings, parcel.surface_level)
+            self._ditches = presets.load_ditches(
+                settings, parcel.ditch_id, parcel.surface_level
+            )
         else:
             self._ditches = parcel.load_ditches(
                 settings.date_range,

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 from loguru import logger
 
 from parcel2d_modflow.aggregation import calculate_lg3
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
     from parcel2d_modflow.config import Config, ModelSettings
-    from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Soilmap
+    from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Presets, Soilmap
 
 
 _WORKER_DATA: ModelData | None = None
@@ -194,12 +195,14 @@ def _run_calibration_parcel(index: int, log_level: str):
             "end_date": parcels["end_date"].iloc[0],
         }
     )
+
     return run_parcels(
         parcels=parcels,
         settings=settings,
         gw_data=_WORKER_DATA.groundwater,
         soilmap=_WORKER_DATA.soilmap,
         modflow_kwargs=_WORKER_MODFLOW_KWARGS,
+        presets=_WORKER_DATA.presets,
     )
 
 
@@ -244,6 +247,7 @@ def run_parcels(
     gw_data: GroundwaterData,
     soilmap: Soilmap,
     modflow_kwargs: dict[str, Any],
+    presets: Presets | None = None,
 ):
     module = Modflow(**modflow_kwargs)
 
@@ -252,7 +256,7 @@ def run_parcels(
     model_results = []
     prepared_parcels = _prepare_parcels(parcels, settings, soilmap)
     for parcel in prepared_parcels:
-        module.initialize(parcel, settings, gw_data)
+        module.initialize(parcel, settings, gw_data, presets=presets)
 
         try:
             phreatic_head = module.run(parcel, settings)

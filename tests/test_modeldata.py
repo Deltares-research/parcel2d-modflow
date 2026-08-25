@@ -49,6 +49,12 @@ def soilmap_files(tmp_path, soilmap):
 
 
 class TestLhmData:
+    @staticmethod
+    def _as_dataarray(obj):
+        if isinstance(obj, xr.Dataset) and len(obj.data_vars) == 1:
+            return obj[next(iter(obj.data_vars))]
+        return obj
+
     @pytest.mark.unittest
     def test_lhm_data(self, lhm_data):
         assert isinstance(lhm_data, GroundwaterData)
@@ -65,6 +71,19 @@ class TestLhmData:
         assert lhm.recharge is None
         assert lhm.head is None
         assert lhm.cell_area is None
+
+    @pytest.mark.unittest
+    def test_load_recharge_accepts_single_var_dataset(self, lhm_data, parcel):
+        lhm_data.recharge = lhm_data.recharge.to_dataset(name="recharge")
+
+        recharge = lhm_data.load_recharge(
+            parcel,
+            pd.Timestamp("2022-01-01"),
+            pd.Timestamp("2022-02-01"),
+        )
+
+        assert isinstance(recharge, components.Recharge)
+        assert recharge.series.size == 32
 
     @pytest.mark.unittest
     def test_load_recharge(self, lhm_data, parcel, start_date, end_date):
