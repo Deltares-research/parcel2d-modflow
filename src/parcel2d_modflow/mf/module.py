@@ -392,9 +392,7 @@ class Modflow(AbstractModule):
 
         """
         if presets.ditch_stage is not None:
-            self._ditches = presets.load_ditches(
-                settings, parcel.ditch_id, parcel.surface_level
-            )
+            self._ditches = presets.load_ditches(parcel, settings)
         else:
             self._ditches = parcel.load_ditches(
                 settings.date_range,
@@ -422,14 +420,7 @@ class Modflow(AbstractModule):
 
         """
         if presets.ditch_stage is not None or presets.pssi_stage is not None:
-            self._ssi = presets.load_ssi_measure(
-                self.measure,
-                settings.date_range,
-                parcel.drain_depth,
-                parcel.drain_distance,
-                parcel.surface_level,
-                settings.min_drain_depth,
-            )
+            self._ssi = presets.load_ssi_measure(parcel, settings, self.measure)
         else:
             self._ssi = parcel.load_ssi_measure(
                 settings.date_range, settings.winter_period, settings.min_drain_depth

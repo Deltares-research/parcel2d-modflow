@@ -281,13 +281,32 @@ class TestPresets:  # TODO: Move this to parcel2d-modflow
         with pytest.raises(MissingDataError):
             presets.load_ditches(parcel_for_error, settings_for_error)
 
-    @pytest.mark.unittest
-    def test_load_ssi_measure_with_error(self, presets, settings_for_error):
-        expected_error = (
-            f"{presets.__class__.__name__} does not have daily data for SSI/PSSI in the "
-            "required modelling period"
+    def test_load_ssi_measure(self, presets, parcel, settings):
+        result = presets.load_ssi_measure(parcel, settings, "ssi")
+        assert isinstance(result, components.SsiMeasure)
+        assert np.isclose(result.drain_depth, -2.904884115944994)
+        assert result.drain_distance == 1
+        assert_array_almost_equal(
+            result.drain_stage,
+            presets.ditch_stage.sel(name=parcel.name, time=settings.date_range),
         )
-        with pytest.raises(MissingDataError, match=expected_error):
-            presets.load_ssi_measure(
-                "ssi", settings_for_error.date_range, 0.7, 4, -2.0, 0.2
-            )
+        assert_array_equal(result.time, settings.date_range)
+
+        result = presets.load_ssi_measure(parcel, settings, "pssi")
+        assert isinstance(result, components.SsiMeasure)
+        assert np.isclose(result.drain_depth, -2.7)
+        assert result.drain_distance == 1
+        assert_array_almost_equal(
+            result.drain_stage,
+            presets.pssi_stage.sel(name=parcel.name, time=settings.date_range),
+        )
+        assert_array_equal(result.time, settings.date_range)
+
+    @pytest.mark.unittest
+    def test_load_ssi_measure_with_error(
+        self, presets, parcel_for_error, settings_for_error
+    ):
+        with pytest.raises(MissingDataError):
+            presets.load_ssi_measure(parcel_for_error, settings_for_error, "ssi")
+        with pytest.raises(MissingDataError):
+            presets.load_ssi_measure(parcel_for_error, settings_for_error, "pssi")
