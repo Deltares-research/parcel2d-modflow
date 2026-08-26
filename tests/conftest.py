@@ -2,8 +2,10 @@ import sys
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 from shapely import geometry as gmt
 
 from parcel2d_modflow import config, read_groundwater_data
@@ -255,46 +257,31 @@ def _create_preset(data, date_range, name):
 
 
 @pytest.fixture
-def presets(model_settings):
+def presets():
     """
-    `Presets` fixture containing dummy input for all optional somers presets.
+    `Presets` fixture containing dummy input for all optional preset data.
 
     """
     resistance = 5000
-    recharge = _create_preset(
-        [
-            4.811e-04,
-            2.928e-03,
-            3.807e-05,
-            3.652e-04,
-            3.970e-03,
-            9.327e-04,
-            1.742e-03,
-        ],
-        model_settings.date_range,
-        "recharge (m/d)",
+    time = pd.date_range("2021-01-01", "2024-12-31", freq="D")
+
+    # Create dummy seasonal variation following a sinus curve with amplitude of 0.2 and
+    # a period of one year and add some random noise.
+    rng = np.random.default_rng(seed=42)
+    season_variation = 0.2 * np.sin(2 * np.pi * (time.dayofyear - 91) / 365.25)
+    noise = rng.normal(0, 0.03, len(time))
+
+    ditch_stage = xr.DataArray(
+        [-2.45 + season_variation + noise],
+        coords={"name": ["A"], "time": time},
+        dims=("name", "time"),
     )
-    flux = _create_preset(
-        [-0.000936, -0.000951, -0.000949, -0.000909, -0.000929, -0.000924, -0.000922],
-        model_settings.date_range,
-        "preset_aquifer_flux (m/d)",
+    pssi_stage = xr.DataArray(
+        [-2.15 + season_variation + noise],
+        coords={"name": ["A"], "time": time},
+        dims=("name", "time"),
     )
-    ditch_stage = _create_preset(
-        [-2.51, -2.51, -2.51, -2.50, -2.50, -2.49, -2.49],
-        model_settings.date_range,
-        "phreatic_head (m-nap)",
-    )
-    pssi_stage = _create_preset(
-        [-2.51, -2.51, -2.50, -2.50, -2.50, -2.49, -2.49],
-        model_settings.date_range,
-        "phreatic_head (m-nap)",
-    )
+
     return Presets(
-        resistance,
-        recharge,
-        flux,
-        ditch_stage,
-        pssi_stage,
-        soilcode=None,
-        carbon_profile=None,
+        resistance=resistance, ditch_stage=ditch_stage, pssi_stage=pssi_stage
     )

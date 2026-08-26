@@ -240,39 +240,35 @@ class TestPresets:  # TODO: Move this to parcel2d-modflow
 
     @pytest.fixture
     def settings_for_error(self):
-        start_date = pd.to_datetime("2022-01-01")
-        end_date = pd.to_datetime("2022-12-31")
+        start_date = pd.to_datetime("1918-01-01")
+        end_date = pd.to_datetime("1918-12-31")
         return ModelSettings(
             workdir=Path("."), start_date=start_date, end_date=end_date
         )
 
-    @pytest.mark.unittest
-    def test_load_recharge_with_error(self, presets, settings_for_error):
-        expected_error = (
-            f"{presets.__class__.__name__}.recharge does not have daily data for the "
-            "required modelling period"
-        )
-        with pytest.raises(MissingDataError, match=expected_error):
-            presets.load_recharge(settings_for_error)
+    @pytest.fixture
+    def parcel_for_error(self, parcel):
+        parcel.name = "Unknown Parcel"
+        return parcel
 
     @pytest.mark.unittest
-    def test_load_flux_with_error(self, presets, settings_for_error):
-        expected_error = (
-            f"{presets.__class__.__name__}.aquifer_flux does not have daily data for the "
-            "required modelling period"
+    def test_load_ditches(self, presets, parcel, settings):
+        result = presets.load_ditches(parcel, settings)
+        assert isinstance(result, components.Ditches)
+        assert np.isclose(result.bottom, -3.104884115944994)
+        assert result.resistance == 1
+        assert_array_almost_equal(
+            result.stage,
+            [-2.63946319, -2.62906901, -2.6584295, -2.64365931, -2.60707662],
         )
-        with pytest.raises(MissingDataError, match=expected_error):
-            presets.load_aquifer_flux(settings_for_error)
+        assert_array_equal(
+            result.dates, pd.date_range("2022-01-01", "2022-01-29", freq="7D")
+        )
 
     @pytest.mark.unittest
-    def test_load_ditches_with_error(self, presets, settings_for_error):
-        expected_error = (
-            f"{presets.__class__.__name__}.ditch_stage does not have daily data for the "
-            "required modelling period"
-        )
-        surface_level = -2.0
-        with pytest.raises(MissingDataError, match=expected_error):
-            presets.load_ditches(settings_for_error, surface_level)
+    def test_load_ditches_error(self, presets, parcel_for_error, settings_for_error):
+        with pytest.raises(MissingDataError):
+            presets.load_ditches(parcel_for_error, settings_for_error)
 
     @pytest.mark.unittest
     def test_load_ssi_measure_with_error(self, presets, settings_for_error):

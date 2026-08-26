@@ -193,8 +193,10 @@ class Modflow(AbstractModule):
         self._discretize_parcel(
             parcel, lhm, settings.dz_resistance_layer, presets.resistance
         )
-        self._load_recharge(parcel, lhm, settings, presets)
-        self._load_aquifer(parcel, lhm, settings, presets)
+        self._recharge = lhm.load_recharge(
+            parcel, settings.start_date, settings.end_date
+        )
+        self._load_aquifer(parcel, lhm, settings)
         self._load_ditches(parcel, settings, presets)
 
         if settings.add_trenches:
@@ -342,42 +344,11 @@ class Modflow(AbstractModule):
             thickness, lithology, geology, kvalues
         )
 
-    def _load_recharge(
-        self,
-        parcel: Parcel,
-        lhm: GroundwaterData,
-        settings: ModelSettings,
-        presets: Presets,
-    ) -> None:
-        """
-        Load LHM recharge data for the Modflow model for a given parcel and time period.
-
-        Parameters
-        ----------
-        parcel : :class:`~somers.base.Parcel`
-            Parcel for which the recharge data is loaded at xy-location.
-        lhm : :class:`~somers.modeldata.LhmData`
-            LHM data container to select the recharge information for the parcel.
-        settings : :class:`~somers.base.ModelSettings`
-            General settings for the SOMERS model run.
-        presets : :class:`~somers.base.Presets`
-            Somers optional `Presets` containing an optional daily time series of recharge
-            data for the ModflowModel in m/d. The default is None.
-
-        """
-        if presets.recharge is not None:
-            self._recharge = presets.load_recharge(settings)
-        else:
-            self._recharge = lhm.load_recharge(
-                parcel, settings.start_date, settings.end_date
-            )
-
     def _load_aquifer(
         self,
         parcel: Parcel,
         lhm: GroundwaterData,
         settings: ModelSettings,
-        presets: Presets,
     ) -> None:
         """
         Load LHM flux data for the Modflow model for a given parcel and time period.
@@ -390,9 +361,6 @@ class Modflow(AbstractModule):
             LHM data container to select the flux information for the parcel.
         settings : :class:`~somers.base.ModelSettings`
             General settings for the SOMERS model run.
-        presets : :class:`~somers.base.Presets`
-            Somers optional `Presets` containing an optional daily time series of flux data
-            for the ModflowModel in m/d. The default is None.
 
         Raises
         ------
@@ -400,15 +368,11 @@ class Modflow(AbstractModule):
             Raises an error for aquifer methods that have not been implemented yet.
 
         """
-        if self.aquifer_method == "flux":
-            if presets.aquifer_flux is not None:
-                self._aquifer = presets.load_aquifer_flux(settings)
-            else:
-                self._aquifer = lhm.load_aquifer_flux(parcel, settings)
-        else:
+        if self.aquifer_method != "flux":
             raise NotImplementedError(
                 "Only 'flux' method for aquifer in a Modflow model is implemented for now."
             )
+        self._aquifer = lhm.load_aquifer_flux(parcel, settings)
 
     def _load_ditches(
         self, parcel: Parcel, settings: ModelSettings, presets: Presets
