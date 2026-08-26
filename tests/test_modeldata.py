@@ -9,8 +9,8 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from parcel2d_modflow import components
 from parcel2d_modflow.config import ModelSettings
-from parcel2d_modflow.exceptions import MissingDataError
-from parcel2d_modflow.modeldata import GroundwaterData, Soilmap
+from parcel2d_modflow.exceptions import InvalidPresetDataError, MissingDataError
+from parcel2d_modflow.modeldata import GroundwaterData, Presets, Soilmap
 
 
 @pytest.fixture
@@ -250,6 +250,17 @@ class TestPresets:  # TODO: Move this to parcel2d-modflow
     def parcel_for_error(self, parcel):
         parcel.name = "Unknown Parcel"
         return parcel
+
+    @pytest.mark.unittest
+    def test_post_init_validation(self, presets):
+        ditch_stage = presets.ditch_stage.rename(
+            {"name": "invalid_name", "time": "invalid_time"}
+        )
+        pssi_stage = presets.pssi_stage.rename(
+            {"name": "invalid_name", "time": "invalid_time"}
+        )
+        with pytest.raises(InvalidPresetDataError):
+            Presets(ditch_stage=ditch_stage, pssi_stage=pssi_stage)
 
     @pytest.mark.unittest
     def test_load_ditches(self, presets, parcel, settings):

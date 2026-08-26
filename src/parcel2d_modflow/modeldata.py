@@ -430,17 +430,24 @@ class Presets:
     ssi_frequency: str = "D"
 
     def __post_init__(self):
+        errors = []
         if self.ditch_stage is not None and self.ditch_stage.dims != ("name", "time"):
-            raise InvalidPresetDataError(
-                f"{self.__class__.__name__}.ditch_stage must be a DataArray with dims "
-                f"('name', 'time'). Now, it has dims {self.ditch_stage.dims}."
+            errors.append(
+                InvalidPresetDataError(
+                    f"{self.__class__.__name__}.ditch_stage must be a DataArray with dims "
+                    f"('name', 'time'). Now, it has dims {self.ditch_stage.dims}."
+                )
             )
 
         if self.pssi_stage is not None and self.pssi_stage.dims != ("name", "time"):
-            raise InvalidPresetDataError(
-                f"{self.__class__.__name__}.pssi_stage must be a DataArray with dims "
-                f"('name', 'time'). Now, it has dims {self.pssi_stage.dims}."
+            errors.append(
+                InvalidPresetDataError(
+                    f"{self.__class__.__name__}.pssi_stage must be a DataArray with dims "
+                    f"('name', 'time'). Now, it has dims {self.pssi_stage.dims}."
+                )
             )
+        if errors:
+            raise InvalidPresetDataError(errors)
 
     def __repr__(self):
         resistance = self.resistance
