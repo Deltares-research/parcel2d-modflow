@@ -119,10 +119,7 @@ class GroundwaterData:
 
         """
         if self.confining is None:
-            raise AttributeError(
-                "Cannot load confining layer from LhmData. LhmData.confining = "
-                f"{self.confining}."
-            )
+            raise AttributeError("Cannot load confining layer from NoneType.")
 
         confining = self.confining.sel(x=parcel.x, y=parcel.y, method="nearest")
 
@@ -182,9 +179,7 @@ class GroundwaterData:
 
         """
         if self.flux is None:
-            raise AttributeError(
-                f"Cannot load aquifer flux from LhmData. LhmData.flux = {self.flux}."
-            )
+            raise AttributeError("Cannot load aquifer flux from NoneType.")
 
         self.flux = self._as_dataarray(self.flux)
         flux_xy = self.flux.sel(x=parcel.x, y=parcel.y, method="nearest")
@@ -220,9 +215,7 @@ class GroundwaterData:
 
         """
         if self.recharge is None:
-            raise AttributeError(
-                f"Cannot load recharge from LhmData. LhmData.recharge = {self.recharge}."
-            )
+            raise AttributeError("Cannot load recharge from NoneType.")
 
         self.recharge = self._as_dataarray(self.recharge)
         recharge = self.recharge.sel(x=parcel.x, y=parcel.y, method="nearest")
@@ -260,9 +253,7 @@ class GroundwaterData:
             through time.
         """
         if self.head is None:
-            raise AttributeError(
-                f"Cannot load phreatic head from LhmData. LhmData.head = {self.head}."
-            )
+            raise AttributeError("Cannot load phreatic head from NoneType.")
 
         self.head = self._as_dataarray(self.head)
         head = self.head.sel(x=parcel.x, y=parcel.y, method="nearest")

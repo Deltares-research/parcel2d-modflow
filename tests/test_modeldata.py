@@ -94,9 +94,7 @@ class TestLhmData:
         assert recharge.series.size == 32
 
         lhm_data.recharge = None
-        with pytest.raises(
-            AttributeError, match="Cannot load recharge from LhmData. LhmData.recharge"
-        ):
+        with pytest.raises(AttributeError, match="Cannot load recharge from NoneType."):
             lhm_data.load_recharge(parcel, start_date, end_date)
 
     @pytest.mark.unittest
@@ -113,7 +111,7 @@ class TestLhmData:
 
         lhm_data.head = None
         with pytest.raises(
-            AttributeError, match="Cannot load phreatic head from LhmData. LhmData.head"
+            AttributeError, match="Cannot load phreatic head from NoneType."
         ):
             lhm_data.load_phreatic_head(parcel, model_settings.date_range)
 
@@ -127,7 +125,7 @@ class TestLhmData:
 
         lhm_data.flux = None
         with pytest.raises(
-            AttributeError, match="Cannot load aquifer flux from LhmData. LhmData.flux"
+            AttributeError, match="Cannot load aquifer flux from NoneType."
         ):
             lhm_data.load_aquifer_flux(parcel, settings)
 
@@ -164,8 +162,7 @@ class TestLhmData:
 
         lhm_data.confining = None
         with pytest.raises(
-            AttributeError,
-            match="Cannot load confining layer from LhmData. LhmData.confining",
+            AttributeError, match="Cannot load confining layer from NoneType."
         ):
             lhm_data.load_confining_layer(parcel, 1.2)
 
