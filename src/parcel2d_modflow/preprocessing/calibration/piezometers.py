@@ -24,19 +24,23 @@ def load_parcel_piezometers_from_db(gdf, connection) -> pd.DataFrame:
         piez_stage = read_timeseries_from_database(
             engine=connection,
             select_name="tsv.scalarvalue, tsv.datetime",
-            schema_name=f"{source}_timeseries",
+            schema_name=f"{source}_timeseries_2024",
             table_name="timeseriesvaluesandflags tsv",
             user_query=f"""
-                JOIN {source}_timeseries.timeseries ts ON ts.timeserieskey = tsv.timeserieskey
-                JOIN {source}_timeseries.location l ON l.locationkey = ts.locationkey
+                JOIN {source}_timeseries_2024.timeseries ts ON ts.timeserieskey = tsv.timeserieskey
+                JOIN {source}_timeseries_2024.location l ON l.locationkey = ts.locationkey
                 WHERE l.locationkey={piez_id}
             """,
         )
         piez_stage.set_index("datetime", inplace=True)
-        piez_stage.rename(columns={"scalarvalue": f"{source}_{piez_id}"}, inplace=True)
+        piez_stage.rename(
+            columns={"scalarvalue": f"{source}_{piez_id}", "datetime": "time"},
+            inplace=True,
+        )
         piez_df.append(piez_stage)
     piezs_df = pd.concat(piez_df)
     daily_piezs_df = piezs_df.resample("D").mean().astype(float)
+    daily_piezs_df.index.name = "time"
     daily_piezs_df.columns.name = "well_id"
     daily_piezs_da = daily_piezs_df.stack().to_xarray()
     return daily_piezs_da
