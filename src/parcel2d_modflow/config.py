@@ -221,13 +221,35 @@ class ModflowSettings(BaseModel):
 
 
 class InputData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     parcels: Path
     confining_nc: Path
     flux_nc: Path
     recharge_nc: Path
     soilmap_gpkg: Path
+    weather_stations: Path | None = None
+    knmi_measurements: Path | None = None
+    weather_regions: Path | None = None
     ditch_level_nc: Path | None = None
     ssi_stage_nc: Path | None = None
+    piezobs_nc: Path | None = None
+
+    @model_validator(mode="after")
+    def _validate_weather_data(self):
+        weather_data = (
+            self.weather_stations,
+            self.knmi_measurements,
+            self.weather_regions,
+        )
+        if any(value is not None for value in weather_data) and not all(
+            value is not None for value in weather_data
+        ):
+            raise ValueError(
+                "weather_stations, knmi_measurements, and weather_regions "
+                "must all be provided together."
+            )
+        return self
 
 
 class OutputSettings(BaseModel):

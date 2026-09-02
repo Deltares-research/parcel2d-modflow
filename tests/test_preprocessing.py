@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from parcel2d_modflow.preprocessing.calibration import ditches, parcels, piezometers
+from parcel2d_modflow.preprocessing.calibration import calibration_parcels, ditches, piezometers
 from parcel2d_modflow.preprocessing.calibration.time_range import (
     update_time_range_from_inputdata,
     update_time_range_from_measurements,
@@ -200,7 +200,7 @@ def test_update_time_range_from_measurements_checks_column_warning_and_bounds(
 
 @pytest.mark.unittest
 def test_create_parcel_gdf_keeps_parcel_geometry(parcel_data):
-    parcel_gdf = parcels.create_parcel_gdf(parcel_data.iloc[[0]].copy())
+    parcel_gdf = calibration_parcels.create_parcel_gdf(parcel_data.iloc[[0]].copy())
 
     assert "parcel_geom" in parcel_gdf.columns
     assert parcel_gdf.geometry.name == "parcel_geom"
@@ -213,7 +213,7 @@ def test_rename_parcel_columns_contains_surface_level_fields(parcel_data):
     assert "z_surface_level_m_nap" in parcel_data.columns
     assert "ahn4_m_nap" in parcel_data.columns
 
-    renamed = parcels.rename_parcel_columns(parcel_data.iloc[[0]].copy())
+    renamed = calibration_parcels.rename_parcel_columns(parcel_data.iloc[[0]].copy())
 
     assert "surface_level" in renamed.columns
     assert renamed.loc[0, "surface_level"] == pytest.approx(
@@ -228,11 +228,11 @@ def test_rename_parcel_columns_raises_for_nan_surface_levels(parcel_data):
     valid["ahn4_m_nap"] = np.nan
 
     with pytest.raises(ValueError, match="Surface level is missing"):
-        parcels.rename_parcel_columns(valid)
+        calibration_parcels.rename_parcel_columns(valid)
 
     valid["z_surface_level_m_nap"] = np.nan
     valid["ahn4_m_nap"] = -1.5
-    renamed = parcels.rename_parcel_columns(valid)
+    renamed = calibration_parcels.rename_parcel_columns(valid)
     assert renamed.loc[0, "surface_level"] == pytest.approx(-1.5)
 
 
@@ -240,7 +240,7 @@ def test_rename_parcel_columns_raises_for_nan_surface_levels(parcel_data):
 def test_rename_parcel_columns_raises_for_missing_original_columns(parcel_data):
     valid = parcel_data.iloc[[0]].copy()
     with pytest.raises(ValueError, match="Missing expected columns"):
-        parcels.rename_parcel_columns(valid.drop(columns=["soil_class"]))
+        calibration_parcels.rename_parcel_columns(valid.drop(columns=["soil_class"]))
 
-    renamed = parcels.rename_parcel_columns(valid)
+    renamed = calibration_parcels.rename_parcel_columns(valid)
     assert "soilcode" in renamed.columns

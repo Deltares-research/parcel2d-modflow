@@ -35,14 +35,19 @@ class ModelData(NamedTuple):
     soilmap : :class:`~parcel2d_modflow.modeldata.Soilmap`
         Data container to retrieve all soilmap information (soilcodes and soilprofiles)
         for individual parcels that is needed for modelling runs.
+    weather : :class:`~parcel2d_modflow.modeldata.WeatherData`
+        Container for all weather data that is needed for modelling runs.
     parameters : pd.DataFrame
         DataFrame with all stochastic Modflow parameters that are needed for modelling
         runs.
+    presets : :class:`~parcel2d_modflow.modeldata.Presets`
+        Container for all preset data that is needed for modelling runs.
     """
 
     parcels: gpd.GeoDataFrame
     groundwater: GroundwaterData
     soilmap: Soilmap
+    weather: WeatherData
     parameters: pd.DataFrame
     presets: Presets = None
 

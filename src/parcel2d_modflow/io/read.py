@@ -79,12 +79,27 @@ def read_data_from_config(config: Config) -> ModelData:
         recharge_nc=config.data.recharge_nc,
     )
     soilmap = read_bro_soilmap(config.data.soilmap_gpkg)
+    if config.data.weather_regions is not None:
+        weather = read_weather_data(
+            weather_stations=config.data.weather_stations,
+            knmi_measurements=config.data.knmi_measurements,
+            weather_regions=config.data.weather_regions,
+        )
+    else:
+        weather = None
     parameters = read_modflow_parameters(config.modflow_settings.parameters)
     presets = read_presets(
         ditch_stage_nc=config.data.ditch_level_nc,
         ssi_stage_nc=config.data.ssi_stage_nc,
     )
-    return ModelData(parcels, gw_data, soilmap, parameters, presets)
+    return ModelData(
+        parcels=parcels,
+        groundwater=gw_data,
+        soilmap=soilmap,
+        weather=weather,
+        parameters=parameters,
+        presets=presets,
+    )
 
 
 def read_parcels(file: str | Path, **gpd_kwargs) -> gpd.GeoDataFrame:

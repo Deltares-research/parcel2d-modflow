@@ -18,13 +18,20 @@ from parcel2d_modflow.io.read import read_data_from_config
 from parcel2d_modflow.io.write import write_batch
 from parcel2d_modflow.logging import init_logger
 from parcel2d_modflow.mf import Modflow
+from parcel2d_modflow.preprocessing.parcels import prepare_parcels
 from parcel2d_modflow.validation import validate_parcels
 
 if TYPE_CHECKING:
     import geopandas as gpd
 
     from parcel2d_modflow.config import Config, ModelSettings
-    from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Presets, Soilmap
+    from parcel2d_modflow.modeldata import (
+        GroundwaterData,
+        ModelData,
+        Presets,
+        Soilmap,
+        WeatherData,
+    )
 
 
 _WORKER_DATA: ModelData | None = None
@@ -202,6 +209,7 @@ def _run_calibration_parcel(index: int, log_level: str):
         gw_data=_WORKER_DATA.groundwater,
         soilmap=_WORKER_DATA.soilmap,
         modflow_kwargs=_WORKER_MODFLOW_KWARGS,
+        weather=_WORKER_DATA.weather,
         presets=_WORKER_DATA.presets,
     )
 
@@ -223,30 +231,13 @@ def _run_linear(config: Config):
     )
 
 
-@validate_parcels
-def _prepare_parcels(
-    parcels: gpd.GeoDataFrame, settings: ModelSettings, soilmap: Soilmap
-):
-    parcel_attributes = parcels.columns
-    for p in parcels.itertuples(index=False):
-        temp_dir_name = f"{p.name}_{p.soilcode}"
-        Path(settings.workdir / temp_dir_name).mkdir(exist_ok=True, parents=True)
-        parcel = Parcel(**dict(zip(parcel_attributes, p)))
-
-        if parcel.soilcode is None:
-            parcel.soilcode = soilmap.soilcode_at(parcel.x, parcel.y)
-
-        parcel.discretize_soildepth(settings)
-        parcel.soilprofile = soilmap.load_soilprofile(parcel)
-        yield parcel
-
-
 def run_parcels(
     parcels: gpd.GeoDataFrame,
     settings: ModelSettings,
     gw_data: GroundwaterData,
     soilmap: Soilmap,
     modflow_kwargs: dict[str, Any],
+    weather: WeatherData | None = None,
     presets: Presets | None = None,
 ):
     module = Modflow(**modflow_kwargs)
@@ -254,9 +245,11 @@ def run_parcels(
     years = settings.date_range.year.unique()
 
     model_results = []
-    prepared_parcels = _prepare_parcels(parcels, settings, soilmap)
+    prepared_parcels = prepare_parcels(parcels, settings, soilmap, weather)
     for parcel in prepared_parcels:
-        module.initialize(parcel, settings, gw_data, presets=presets)
+        module.initialize(
+            parcel, settings, lhm=gw_data, weather=weather, presets=presets
+        )
 
         try:
             phreatic_head = module.run(parcel, settings)
