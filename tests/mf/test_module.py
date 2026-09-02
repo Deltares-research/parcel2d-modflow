@@ -243,66 +243,16 @@ class TestModflow:
         assert_array_equal(modflow_module.discretization.kvalues, [0.0001, 2200.0])
 
     @pytest.mark.unittest
-    def test_load_recharge(
-        self,
-        modflow_module: Modflow,
-        parcel: Parcel,
-        lhm_data: GroundwaterData,
-        model_settings: ModelSettings,
-        empty_presets: Presets,
-    ):
-        modflow_module._load_recharge(parcel, lhm_data, model_settings, empty_presets)
-
-        assert isinstance(modflow_module.recharge, components.Recharge)
-        assert modflow_module.recharge.start == 0.00048118845
-        assert isinstance(modflow_module.recharge.series, np.ndarray)
-        assert len(modflow_module.recharge.series) == 7
-
-    @pytest.mark.unittest
-    def test_load_recharge_with_presets(
-        self,
-        modflow_module: Modflow,
-        parcel: Parcel,
-        lhm_data: GroundwaterData,
-        model_settings: ModelSettings,
-        presets: Presets,
-    ):
-        modflow_module._load_recharge(parcel, lhm_data, model_settings, presets)
-
-        assert isinstance(modflow_module.recharge, components.Recharge)
-        assert np.isclose(modflow_module.recharge.start, 0.00149386)
-        assert isinstance(modflow_module.recharge.series, np.ndarray)
-        assert len(modflow_module.recharge.series) == 7
-
-    @pytest.mark.unittest
     def test_load_flux(
         self,
         modflow_module: Modflow,
         parcel: Parcel,
         lhm_data: GroundwaterData,
         model_settings: ModelSettings,
-        empty_presets: Presets,
     ):
-        modflow_module._load_aquifer(parcel, lhm_data, model_settings, empty_presets)
-
+        modflow_module._load_aquifer(parcel, lhm_data, model_settings)
         assert isinstance(modflow_module.aquifer, components.Aquifer)
         assert modflow_module.aquifer.start == -0.000936158816
-        assert isinstance(modflow_module.aquifer.series, np.ndarray)
-        assert len(modflow_module.aquifer.series) == 7
-
-    @pytest.mark.unittest
-    def test_load_flux_with_presets(
-        self,
-        modflow_module: Modflow,
-        parcel: Parcel,
-        lhm_data: GroundwaterData,
-        model_settings: ModelSettings,
-        presets: Presets,
-    ):
-        modflow_module._load_aquifer(parcel, lhm_data, model_settings, presets)
-
-        assert isinstance(modflow_module.aquifer, components.Aquifer)
-        assert np.isclose(modflow_module.aquifer.start, -0.000931428)
         assert isinstance(modflow_module.aquifer.series, np.ndarray)
         assert len(modflow_module.aquifer.series) == 7
 
@@ -339,12 +289,11 @@ class TestModflow:
         modflow_module._load_ditches(parcel, model_settings, presets)
 
         assert isinstance(modflow_module.ditches, components.Ditches)
-        assert np.isclose(modflow_module.ditches.bottom, -2.9099, atol=1e-4)
+        assert np.isclose(modflow_module.ditches.bottom, -3.074342881812138)
         assert modflow_module.ditches.resistance == 1.0
-        assert_array_almost_equal(modflow_module.ditches.stage, [-2.5014], decimal=4)
+        assert_array_almost_equal(modflow_module.ditches.stage, [-2.63946319])
         assert_array_equal(
-            modflow_module.ditches.dates,
-            pd.DatetimeIndex(["2022-01-01"]),
+            modflow_module.ditches.dates, pd.DatetimeIndex(["2022-01-01"])
         )
 
     @pytest.mark.unittest
@@ -377,11 +326,19 @@ class TestModflow:
         modflow_module.measure = "ssi"
         modflow_module._load_ssi(parcel, model_settings, presets)
         assert isinstance(modflow_module.ssi, components.SsiMeasure)
-        assert modflow_module.ssi.drain_depth == -2.71
+        assert modflow_module.ssi.drain_depth == -2.8743428818121384
         assert modflow_module.ssi.drain_distance == 1
         assert_array_almost_equal(
             modflow_module.ssi.drain_stage,
-            [-2.51, -2.51, -2.51, -2.5, -2.5, -2.49, -2.49],
+            [
+                -2.60550536,
+                -2.67214942,
+                -2.67434288,
+                -2.64338072,
+                -2.62383385,
+                -2.64847919,
+                -2.60855089,
+            ],
         )
         assert_array_equal(
             modflow_module.ssi.time,
@@ -409,11 +366,19 @@ class TestModflow:
         modflow_module.measure = "pssi"
         modflow_module._load_ssi(parcel, model_settings, presets)
         assert isinstance(modflow_module.ssi, components.SsiMeasure)
-        assert modflow_module.ssi.drain_depth == -2.71
+        assert modflow_module.ssi.drain_depth == -2.7
         assert modflow_module.ssi.drain_distance == 1
         assert_array_almost_equal(
             modflow_module.ssi.drain_stage,
-            [-2.51, -2.51, -2.50, -2.5, -2.5, -2.49, -2.49],
+            [
+                -2.30550536,
+                -2.37214942,
+                -2.37434288,
+                -2.34338072,
+                -2.32383385,
+                -2.34847919,
+                -2.30855089,
+            ],
         )
         assert_array_equal(
             modflow_module.ssi.time,
@@ -442,8 +407,6 @@ class TestModflow:
         modflow_module.initialize(parcel, settings, lhm_data)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
         assert_array_equal(modflow_module.discretization.kvalues, [0.01, 2200.0])
-        assert isinstance(modflow_module.recharge, components.Recharge)
-        assert modflow_module.recharge.start == 0.00048118845
         assert isinstance(modflow_module.aquifer, components.Aquifer)
         assert modflow_module.aquifer.start == -0.000936158816
         assert isinstance(modflow_module.ditches, components.Ditches)
@@ -452,6 +415,12 @@ class TestModflow:
         assert modflow_module.ssi.drain_depth == -2.7
         assert isinstance(modflow_module.trenches, components.Trenches)
         assert modflow_module.trenches.depth == -2.3
+
+        # Recharge does not have a separate _load method so we test the result here.
+        assert isinstance(modflow_module.recharge, components.Recharge)
+        assert modflow_module.recharge.start == 0.00048118845
+        assert isinstance(modflow_module.recharge.series, np.ndarray)
+        assert len(modflow_module.recharge.series) == 7
 
     @pytest.mark.unittest
     def test_initialize_with_presets(
@@ -465,18 +434,18 @@ class TestModflow:
         modflow_module.initialize(parcel, model_settings, lhm_data, presets)
         assert isinstance(modflow_module.discretization, components.SubsurfaceStructure)
         assert_array_equal(modflow_module.discretization.kvalues, [0.0001, 2200.0])
-        assert isinstance(modflow_module.recharge, components.Recharge)
-        assert np.isclose(modflow_module.recharge.start, 0.00149386)
         assert isinstance(modflow_module.aquifer, components.Aquifer)
-        assert np.isclose(modflow_module.aquifer.start, -0.000931428)
+        assert modflow_module.aquifer.start == -0.000936158816
         assert isinstance(modflow_module.ditches, components.Ditches)
-        assert_array_almost_equal(modflow_module.ditches.stage, [-2.5014], decimal=4)
+        assert np.isclose(modflow_module.ditches.bottom, -3.074342881812138)
         assert isinstance(modflow_module.ssi, components.SsiMeasure)
-        assert_array_almost_equal(
-            modflow_module.ssi.drain_stage,
-            [-2.51, -2.51, -2.51, -2.5, -2.5, -2.49, -2.49],
-        )
         assert modflow_module.trenches is None
+
+        # Recharge does not have a separate _load method so we test the result here.
+        assert isinstance(modflow_module.recharge, components.Recharge)
+        assert modflow_module.recharge.start == 0.00048118845
+        assert isinstance(modflow_module.recharge.series, np.ndarray)
+        assert len(modflow_module.recharge.series) == 7
 
     @pytest.mark.unittest
     def test_create_modflow_model(
@@ -814,27 +783,26 @@ class TestModflow:
         assert_array_equal(ph["time"], model_settings.date_range)
         assert_array_equal(ph["x"], [0.25, 0.75, 1.25, 1.75])
         assert_array_almost_equal(
-            ph.sel(runs=1),
+            ph,
             [
-                [-2.50158, -2.50198728, -2.50241515, -2.50195879],
-                [-2.49904451, -2.49906222, -2.49956854, -2.49945739],
-                [-2.50152638, -2.50186895, -2.50228086, -2.5018599],
-                [-2.50172063, -2.50186309, -2.5018308, -2.50173075],
-                [-2.49692264, -2.49624231, -2.49631785, -2.49698296],
-                [-2.49811521, -2.49720866, -2.49683015, -2.49783992],
-                [-2.49755809, -2.49650543, -2.49608378, -2.49722363],
-            ],
-        )
-        assert_array_almost_equal(
-            ph.sel(runs=2),
-            [
-                [-2.50093972, -2.50127647, -2.50190664, -2.50141068],
-                [-2.49887416, -2.49888316, -2.49951574, -2.4993537],
-                [-2.5009328, -2.50121775, -2.50172959, -2.50131577],
-                [-2.50136088, -2.50148415, -2.50150534, -2.50142637],
-                [-2.49716827, -2.49644758, -2.49652112, -2.49723229],
-                [-2.49800519, -2.49693957, -2.49651785, -2.49773455],
-                [-2.49747761, -2.49620739, -2.49571642, -2.49712773],
+                [
+                    [-2.63596, -2.63394905, -2.63246557, -2.63477177],
+                    [-2.6369594, -2.63696318, -2.6381206, -2.63769039],
+                    [-2.64106501, -2.6424195, -2.64391705, -2.64215983],
+                    [-2.64067438, -2.64136025, -2.64167572, -2.64097789],
+                    [-2.63501732, -2.63384528, -2.63341772, -2.63473942],
+                    [-2.63764589, -2.63735238, -2.63770377, -2.63788327],
+                    [-2.63541494, -2.63372057, -2.63265152, -2.6346492],
+                ],
+                [
+                    [-2.636123, -2.63369227, -2.63191856, -2.6348253],
+                    [-2.63659437, -2.63626341, -2.63743444, -2.63719949],
+                    [-2.64009981, -2.64125689, -2.64295076, -2.64118557],
+                    [-2.64011877, -2.64076752, -2.64121884, -2.64049424],
+                    [-2.63532123, -2.63409892, -2.63365463, -2.6350857],
+                    [-2.63737684, -2.63692372, -2.63731201, -2.63761536],
+                    [-2.6355691, -2.63364248, -2.63245423, -2.63481837],
+                ],
             ],
         )
         assert_array_equal(

@@ -25,6 +25,7 @@ pyogrio = "*"
 h5netcdf = "*"
 xarray = "*"
 rioxarray = "*"
+sqlalchemy = "*"
 loguru = "*"
 pytest = "*"
 pytest-cov = "*"
@@ -33,9 +34,14 @@ pooch = "*"
 pre-commit = "*"
 pyinstrument = "*"
 deptry = "*"
+ipykernel = "*"
+pip = "*"
+psycopg2 = "*"
+python-dotenv = "*"
 
 [pypi-dependencies]
 parcel2d_modflow = { path = ".", editable = true }
+psycopg = { version = "*", extras = ["binary"] }
 
 [feature.docs.dependencies]
 sphinx = "*"

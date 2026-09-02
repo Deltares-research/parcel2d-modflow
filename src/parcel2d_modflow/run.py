@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 from loguru import logger
 
 from parcel2d_modflow.aggregation import calculate_lg3
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
     from parcel2d_modflow.config import Config, ModelSettings
-    from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Soilmap
+    from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Presets, Soilmap
 
 
 _WORKER_DATA: ModelData | None = None
@@ -59,6 +60,43 @@ def run_config(config: Config, *, write_batches: bool = False):
         results = _run_linear(config)
 
     return results
+
+
+def run_calibration(config: Config):
+    data = read_data_from_config(config)
+
+    results: list[pd.DataFrame] = []
+
+    num_processes = int(
+        min(len(data.parcels), os.cpu_count()) * config.run_settings.multiprocess_scale
+    )
+    logger.info(
+        "Starting runs for {n_parcels} parcels with {num_processes} parallel processes",
+        n_parcels=len(data.parcels),
+        num_processes=num_processes,
+    )
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(
+        max_workers=num_processes,
+        mp_context=context,
+        initializer=_init_worker,
+        initargs=(data, config),
+    ) as exc:
+        tasks = [
+            exc.submit(_run_calibration_parcel, idx, config.run_settings.log_level)
+            for idx in data.parcels.index
+        ]
+        for ii, task in enumerate(as_completed(tasks), start=1):
+            try:
+                processed_parcel = task.result()
+            except Exception:
+                logger.exception("Error processing parcel")
+            else:
+                results.append(processed_parcel)
+
+    results = pd.concat(results)
+
+    return results.sort_index()
 
 
 def _create_batches(size: int, parcels: gpd.GeoDataFrame):
@@ -138,6 +176,36 @@ def _run_batch(indices: list[int], log_level: str):
     )
 
 
+def _run_calibration_parcel(index: int, log_level: str):
+    if _WORKER_DATA is None or _WORKER_SETTINGS is None:
+        raise RuntimeError(
+            "Worker data and settings have not been initialized. Cannot run batch."
+        )
+    init_logger(level=log_level)
+
+    logger.info(
+        "[PID {pid}] Processing parcel: {index}",
+        pid=os.getpid(),
+        index=index,
+    )
+    parcels = _WORKER_DATA.parcels.loc[[index]]
+    settings = _WORKER_SETTINGS.model_copy(
+        update={
+            "start_date": parcels["start_date"].iloc[0],
+            "end_date": parcels["end_date"].iloc[0],
+        }
+    )
+
+    return run_parcels(
+        parcels=parcels,
+        settings=settings,
+        gw_data=_WORKER_DATA.groundwater,
+        soilmap=_WORKER_DATA.soilmap,
+        modflow_kwargs=_WORKER_MODFLOW_KWARGS,
+        presets=_WORKER_DATA.presets,
+    )
+
+
 def _run_linear(config: Config):
     data = read_data_from_config(config)
 
@@ -162,7 +230,7 @@ def _prepare_parcels(
     parcel_attributes = parcels.columns
     for p in parcels.itertuples(index=False):
         temp_dir_name = f"{p.name}_{p.soilcode}"
-        Path(settings.workdir / temp_dir_name).mkdir(exist_ok=True)
+        Path(settings.workdir / temp_dir_name).mkdir(exist_ok=True, parents=True)
         parcel = Parcel(**dict(zip(parcel_attributes, p)))
 
         if parcel.soilcode is None:
@@ -179,6 +247,7 @@ def run_parcels(
     gw_data: GroundwaterData,
     soilmap: Soilmap,
     modflow_kwargs: dict[str, Any],
+    presets: Presets | None = None,
 ):
     module = Modflow(**modflow_kwargs)
 
@@ -187,7 +256,7 @@ def run_parcels(
     model_results = []
     prepared_parcels = _prepare_parcels(parcels, settings, soilmap)
     for parcel in prepared_parcels:
-        module.initialize(parcel, settings, gw_data)
+        module.initialize(parcel, settings, gw_data, presets=presets)
 
         try:
             phreatic_head = module.run(parcel, settings)

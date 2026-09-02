@@ -9,8 +9,8 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from parcel2d_modflow import components
 from parcel2d_modflow.config import ModelSettings
-from parcel2d_modflow.exceptions import MissingDataError
-from parcel2d_modflow.modeldata import GroundwaterData, Soilmap
+from parcel2d_modflow.exceptions import InvalidPresetDataError, MissingDataError
+from parcel2d_modflow.modeldata import GroundwaterData, Presets, Soilmap
 
 
 @pytest.fixture
@@ -48,7 +48,13 @@ def soilmap_files(tmp_path, soilmap):
     return soilmap_file, soilprofiles_file
 
 
-class TestLhmData:
+class TestGroundwaterData:
+    @staticmethod
+    def _as_dataarray(obj):
+        if isinstance(obj, xr.Dataset) and len(obj.data_vars) == 1:
+            return obj[next(iter(obj.data_vars))]
+        return obj
+
     @pytest.mark.unittest
     def test_lhm_data(self, lhm_data):
         assert isinstance(lhm_data, GroundwaterData)
@@ -67,6 +73,19 @@ class TestLhmData:
         assert lhm.cell_area is None
 
     @pytest.mark.unittest
+    def test_load_recharge_accepts_single_var_dataset(self, lhm_data, parcel):
+        lhm_data.recharge = lhm_data.recharge.to_dataset(name="recharge")
+
+        recharge = lhm_data.load_recharge(
+            parcel,
+            pd.Timestamp("2022-01-01"),
+            pd.Timestamp("2022-02-01"),
+        )
+
+        assert isinstance(recharge, components.Recharge)
+        assert recharge.series.size == 32
+
+    @pytest.mark.unittest
     def test_load_recharge(self, lhm_data, parcel, start_date, end_date):
         recharge = lhm_data.load_recharge(parcel, start_date, end_date)
         assert isinstance(recharge, components.Recharge)
@@ -75,9 +94,7 @@ class TestLhmData:
         assert recharge.series.size == 32
 
         lhm_data.recharge = None
-        with pytest.raises(
-            AttributeError, match="Cannot load recharge from LhmData. LhmData.recharge"
-        ):
+        with pytest.raises(AttributeError, match="Cannot load recharge from NoneType."):
             lhm_data.load_recharge(parcel, start_date, end_date)
 
     @pytest.mark.unittest
@@ -94,7 +111,7 @@ class TestLhmData:
 
         lhm_data.head = None
         with pytest.raises(
-            AttributeError, match="Cannot load phreatic head from LhmData. LhmData.head"
+            AttributeError, match="Cannot load phreatic head from NoneType."
         ):
             lhm_data.load_phreatic_head(parcel, model_settings.date_range)
 
@@ -108,7 +125,7 @@ class TestLhmData:
 
         lhm_data.flux = None
         with pytest.raises(
-            AttributeError, match="Cannot load aquifer flux from LhmData. LhmData.flux"
+            AttributeError, match="Cannot load aquifer flux from NoneType."
         ):
             lhm_data.load_aquifer_flux(parcel, settings)
 
@@ -145,8 +162,7 @@ class TestLhmData:
 
         lhm_data.confining = None
         with pytest.raises(
-            AttributeError,
-            match="Cannot load confining layer from LhmData. LhmData.confining",
+            AttributeError, match="Cannot load confining layer from NoneType."
         ):
             lhm_data.load_confining_layer(parcel, 1.2)
 
@@ -221,47 +237,73 @@ class TestPresets:  # TODO: Move this to parcel2d-modflow
 
     @pytest.fixture
     def settings_for_error(self):
-        start_date = pd.to_datetime("2022-01-01")
-        end_date = pd.to_datetime("2022-12-31")
+        start_date = pd.to_datetime("1918-01-01")
+        end_date = pd.to_datetime("1918-12-31")
         return ModelSettings(
             workdir=Path("."), start_date=start_date, end_date=end_date
         )
 
-    @pytest.mark.unittest
-    def test_load_recharge_with_error(self, presets, settings_for_error):
-        expected_error = (
-            f"{presets.__class__.__name__}.recharge does not have daily data for the "
-            "required modelling period"
-        )
-        with pytest.raises(MissingDataError, match=expected_error):
-            presets.load_recharge(settings_for_error)
+    @pytest.fixture
+    def parcel_for_error(self, parcel):
+        parcel.name = "Unknown Parcel"
+        return parcel
 
     @pytest.mark.unittest
-    def test_load_flux_with_error(self, presets, settings_for_error):
-        expected_error = (
-            f"{presets.__class__.__name__}.aquifer_flux does not have daily data for the "
-            "required modelling period"
+    def test_post_init_validation(self, presets):
+        ditch_stage = presets.ditch_stage.rename(
+            {"name": "invalid_name", "time": "invalid_time"}
         )
-        with pytest.raises(MissingDataError, match=expected_error):
-            presets.load_aquifer_flux(settings_for_error)
+        pssi_stage = presets.pssi_stage.rename(
+            {"name": "invalid_name", "time": "invalid_time"}
+        )
+        with pytest.raises(InvalidPresetDataError):
+            Presets(ditch_stage=ditch_stage, pssi_stage=pssi_stage)
 
     @pytest.mark.unittest
-    def test_load_ditches_with_error(self, presets, settings_for_error):
-        expected_error = (
-            f"{presets.__class__.__name__}.ditch_stage does not have daily data for the "
-            "required modelling period"
+    def test_load_ditches(self, presets, parcel, settings):
+        result = presets.load_ditches(parcel, settings)
+        assert isinstance(result, components.Ditches)
+        assert np.isclose(result.bottom, -3.104884115944994)
+        assert result.resistance == 1
+        assert_array_almost_equal(
+            result.stage,
+            [-2.63946319, -2.62906901, -2.6584295, -2.64365931, -2.60707662],
         )
-        surface_level = -2.0
-        with pytest.raises(MissingDataError, match=expected_error):
-            presets.load_ditches(settings_for_error, surface_level)
+        assert_array_equal(
+            result.dates, pd.date_range("2022-01-01", "2022-01-29", freq="7D")
+        )
 
     @pytest.mark.unittest
-    def test_load_ssi_measure_with_error(self, presets, settings_for_error):
-        expected_error = (
-            f"{presets.__class__.__name__} does not have daily data for SSI/PSSI in the "
-            "required modelling period"
+    def test_load_ditches_error(self, presets, parcel_for_error, settings_for_error):
+        with pytest.raises(MissingDataError):
+            presets.load_ditches(parcel_for_error, settings_for_error)
+
+    def test_load_ssi_measure(self, presets, parcel, settings):
+        result = presets.load_ssi_measure(parcel, settings, "ssi")
+        assert isinstance(result, components.SsiMeasure)
+        assert np.isclose(result.drain_depth, -2.904884115944994)
+        assert result.drain_distance == 1
+        assert_array_almost_equal(
+            result.drain_stage,
+            presets.ditch_stage.sel(name=parcel.name, time=settings.date_range),
         )
-        with pytest.raises(MissingDataError, match=expected_error):
-            presets.load_ssi_measure(
-                "ssi", settings_for_error.date_range, 0.7, 4, -2.0, 0.2
-            )
+        assert_array_equal(result.time, settings.date_range)
+
+        result = presets.load_ssi_measure(parcel, settings, "pssi")
+        assert isinstance(result, components.SsiMeasure)
+        assert np.isclose(result.drain_depth, -2.7)
+        assert result.drain_distance == 1
+        assert_array_almost_equal(
+            result.drain_stage,
+            presets.pssi_stage.sel(name=parcel.name, time=settings.date_range),
+        )
+        assert_array_equal(result.time, settings.date_range)
+
+    @pytest.mark.unittest
+    def test_load_ssi_measure_with_error(
+        self, presets, parcel_for_error, settings_for_error
+    ):
+        with pytest.raises(MissingDataError):
+            presets.load_ssi_measure(parcel_for_error, settings_for_error, "ssi")
+        with pytest.raises(MissingDataError):
+            presets.load_ssi_measure(parcel_for_error, settings_for_error, "pssi")
