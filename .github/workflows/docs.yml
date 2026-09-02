@@ -24,7 +24,7 @@ jobs:
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          manifest-path: pyproject.toml
+          manifest-path: pixi.toml
       - name: Build docs
         run: pixi run build-docs
       - name: Deploy to Github Pages

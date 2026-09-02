@@ -56,7 +56,7 @@ jobs:
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          manifest-path: pyproject.toml
+          manifest-path: pixi.toml
       - name: Run tests in current test environment
         run: pixi run -e ${{ matrix.pixi-environment }} test
 
@@ -69,7 +69,7 @@ jobs:
       - name: Setup Pixi
         uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          manifest-path: pyproject.toml
+          manifest-path: pixi.toml
       - name: Run tests
         run: pixi run test
       - name: Publish code coverage
