@@ -1,4 +1,5 @@
 # %%
+import warnings
 from typing import Any, Optional, Sequence
 
 import pandas as pd
@@ -58,11 +59,11 @@ def select_time_range(
         )
     if ditch_da is not None:
         start_time, end_time = update_time_range_from_measurements(
-            parcel_df, ditch_da, "ditch_id", start_time, end_time
+            parcel_df, ditch_da, "name", start_time, end_time
         )
 
-    parcel_df["start_date"] = start_time
-    parcel_df["end_date"] = end_time
+    parcel_df["start_date"] = start_time.dt.normalize()
+    parcel_df["end_date"] = end_time.dt.normalize()
     return parcel_df
 
 
@@ -76,18 +77,20 @@ def update_time_range_from_measurements(
     """
     Update time range based on available measurements data.
     """
-
+    if meas_name_column not in parcel_df.columns:
+        raise ValueError(f"{meas_name_column} not found in parcel_df columns")
     for aan_id, meas_id in parcel_df[meas_name_column].items():
         if isinstance(meas_id, set):
             meas_id = list(meas_id)
         measurement_data = measurements_da.sel({meas_name_column: meas_id})
-        measurement_data = measurement_data.dropna(dim="datetime", how="all")
+        measurement_data = measurement_data.dropna(dim="time", how="all")
         if measurement_data.size == 0:
-            measurement_data = measurement_data.assign_coords(
-                datetime=pd.to_datetime("2020-01-01")
+            warnings.warn(
+                f"No measurements found for {meas_name_column} '{meas_id}' in parcel '{aan_id}'"
             )
-        st = pd.Timestamp(measurement_data.datetime.min().values)
-        et = pd.Timestamp(measurement_data.datetime.max().values)
+            continue
+        st = pd.Timestamp(measurement_data.time.min().values)
+        et = pd.Timestamp(measurement_data.time.max().values)
         start_time[aan_id] = max(start_time[aan_id], st)
         end_time[aan_id] = min(end_time[aan_id], et)
     return start_time, end_time
@@ -119,6 +122,9 @@ def update_time_range_from_inputdata(
         Tuple of (start_time, end_time) as pd.Series objects
     """
     if attrs:
+        if not all(hasattr(data, attr) for attr in attrs):
+            missing_attrs = [attr for attr in attrs if not hasattr(data, attr)]
+            raise AttributeError(f"Data object is missing attributes: {missing_attrs}")
         for attr in attrs:
             attr_data = getattr(data, attr)
             attr_time = pd.to_datetime(attr_data.time)

@@ -4,6 +4,7 @@ import xarray as xr
 from parcel2d_modflow.io.postgis import read_timeseries_from_database
 
 
+# %%
 def load_parcel_ditches_from_db(gdf, connection) -> pd.DataFrame:
     """
     Load ditch stage data for the ditches associated with the parcels in the provided GeoDataFrame
@@ -21,30 +22,33 @@ def load_parcel_ditches_from_db(gdf, connection) -> pd.DataFrame:
         DataFrame containing ditch stage data for the associated ditches, resampled to daily frequency and interpolated.
     """
     ditch_df = []
-    for source, ditch_id in gdf.ditch_id.str.split("_"):
+    for name, (source, ditch_id) in zip(gdf.name, gdf.ditch_id.str.split("_")):
         ditch_stage = read_timeseries_from_database(
             engine=connection,
             select_name="tsv.scalarvalue, tsv.datetime",
-            schema_name=f"{source}_timeseries",
+            schema_name=f"{source}_timeseries_2024",
             table_name="timeseriesvaluesandflags tsv",
             user_query=f"""
-                JOIN {source}_timeseries.timeseries ts ON ts.timeserieskey = tsv.timeserieskey
-                JOIN {source}_timeseries.location l ON l.locationkey = ts.locationkey
+                JOIN {source}_timeseries_2024.timeseries ts ON ts.timeserieskey = tsv.timeserieskey
+                JOIN {source}_timeseries_2024.location l ON l.locationkey = ts.locationkey
+                JOIN {source}_timeseries_2024.parameter p ON p.parameterkey = ts.parameterkey
                 WHERE l.locationkey={ditch_id}
             """,
         )
         ditch_stage.set_index("datetime", inplace=True)
         ditch_stage.rename(
-            columns={"scalarvalue": f"{source}_{ditch_id}"}, inplace=True
+            columns={"scalarvalue": name, "datetime": "time"}, inplace=True
         )
         ditch_df.append(ditch_stage)
     ditches_df = pd.concat(ditch_df)
     daily_ditches_df = ditches_df.resample("D").mean().astype(float)
+    daily_ditches_df.index.name = "time"
     interpolated_ditches_df = interpolate_ditch_values(
         daily_ditches_df, method="linear"
     )
-    interpolated_ditches_df.columns.name = "ditch_id"
+    interpolated_ditches_df.columns.name = "name"
     interpolated_ditches_da = interpolated_ditches_df.stack().to_xarray()
+    interpolated_ditches_da = interpolated_ditches_da.transpose("name", "time")
     return interpolated_ditches_da
 
 
