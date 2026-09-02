@@ -287,9 +287,7 @@ class Modflow(AbstractModule):
         if self.gw_recharge_method == "precip_evap":
             self._load_precip_evap_data(parcel, weather, settings)
         elif self.gw_recharge_method == "recharge":
-            self._recharge = lhm.load_recharge(
-                parcel, settings.start_date, settings.end_date
-            )
+            self._recharge = lhm.load_recharge(parcel, settings)
 
         self._load_aquifer(parcel, lhm, settings)
         self._load_ditches(parcel, settings, presets)

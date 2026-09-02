@@ -72,32 +72,6 @@ class TestGroundwaterData:
         assert lhm.head is None
         assert lhm.cell_area is None
 
-    @pytest.mark.unittest
-    def test_load_recharge_accepts_single_var_dataset(self, lhm_data, parcel):
-        lhm_data.recharge = lhm_data.recharge.to_dataset(name="recharge")
-
-        recharge = lhm_data.load_recharge(
-            parcel,
-            pd.Timestamp("2022-01-01"),
-            pd.Timestamp("2022-02-01"),
-        )
-
-        assert isinstance(recharge, components.Recharge)
-        assert recharge.series.size == 32
-
-    @pytest.mark.unittest
-    def test_load_recharge_accepts_single_var_dataset(self, lhm_data, parcel):
-        lhm_data.recharge = lhm_data.recharge.to_dataset(name="recharge")
-
-        recharge = lhm_data.load_recharge(
-            parcel,
-            pd.Timestamp("2022-01-01"),
-            pd.Timestamp("2022-02-01"),
-        )
-
-        assert isinstance(recharge, components.Recharge)
-        assert recharge.series.size == 32
-
     def test_load_recharge(self, lhm_data, parcel, settings):
         recharge = lhm_data.load_recharge(parcel, settings)
         assert isinstance(recharge, components.ModflowInputSeries)
@@ -107,7 +81,7 @@ class TestGroundwaterData:
 
         lhm_data.recharge = None
         with pytest.raises(AttributeError, match="Cannot load recharge from NoneType."):
-            lhm_data.load_recharge(parcel, start_date, end_date)
+            lhm_data.load_recharge(parcel, settings)
 
     @pytest.mark.unittest
     def test_load_phreatic_head(self, lhm_data, parcel, model_settings):

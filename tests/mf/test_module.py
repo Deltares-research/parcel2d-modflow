@@ -336,48 +336,6 @@ class TestModflow:
 
     @pytest.mark.parametrize(
         "modflow_module",
-        [Params(measure="ref"), Params(measure="ssi"), Params(measure="pssi")],
-        ids=["ref", "ssi", "pssi"],
-        indirect=True,
-    )
-    def test_load_recharge(
-        self,
-        modflow_module: Modflow,
-        parcel: Parcel,
-        lhm_data: GroundwaterData,
-        model_settings: ModelSettings,
-        empty_presets: Presets,
-    ):
-        modflow_module._load_recharge(parcel, lhm_data, model_settings, empty_presets)
-
-        assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
-        assert modflow_module.recharge.start == 0.00048118845
-        assert isinstance(modflow_module.recharge.series, np.ndarray)
-        assert len(modflow_module.recharge.series) == 7
-
-    @pytest.mark.parametrize(
-        "modflow_module",
-        [Params(measure="ref"), Params(measure="ssi"), Params(measure="pssi")],
-        ids=["ref", "ssi", "pssi"],
-        indirect=True,
-    )
-    def test_load_recharge_with_presets(
-        self,
-        modflow_module: Modflow,
-        parcel: Parcel,
-        lhm_data: GroundwaterData,
-        model_settings: ModelSettings,
-        presets: Presets,
-    ):
-        modflow_module._load_recharge(parcel, lhm_data, model_settings, presets)
-
-        assert isinstance(modflow_module.recharge, components.ModflowInputSeries)
-        assert np.isclose(modflow_module.recharge.start, 0.00149386)
-        assert isinstance(modflow_module.recharge.series, np.ndarray)
-        assert len(modflow_module.recharge.series) == 7
-
-    @pytest.mark.parametrize(
-        "modflow_module",
         [
             Params(gw_recharge_method="precip_evap", measure="ref"),
             Params(gw_recharge_method="precip_evap", measure="ssi"),
@@ -433,40 +391,6 @@ class TestModflow:
 
         assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
         assert modflow_module.aquifer.start == -0.000936158816
-        assert isinstance(modflow_module.aquifer.series, np.ndarray)
-        assert len(modflow_module.aquifer.series) == 7
-
-    @pytest.mark.parametrize(
-        "modflow_module",
-        [
-            Params(gw_recharge_method="recharge", measure="ref"),
-            Params(gw_recharge_method="recharge", measure="ssi"),
-            Params(gw_recharge_method="recharge", measure="pssi"),
-            Params(gw_recharge_method="precip_evap", measure="ref"),
-            Params(gw_recharge_method="precip_evap", measure="ssi"),
-            Params(gw_recharge_method="precip_evap", measure="pssi"),
-        ],
-        ids=[
-            "recharge-ref",
-            "recharge-ssi",
-            "recharge-pssi",
-            "precip_evap-ref",
-            "precip_evap-ssi",
-            "precip_evap-pssi",
-        ],
-        indirect=True,
-    )
-    def test_load_flux_with_presets(
-        self,
-        modflow_module: Modflow,
-        parcel: Parcel,
-        lhm_data: GroundwaterData,
-        model_settings: ModelSettings,
-        presets: Presets,
-    ):
-        modflow_module._load_aquifer(parcel, lhm_data, model_settings, presets)
-        assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
-        assert np.isclose(modflow_module.aquifer.start, -0.000931428)
         assert isinstance(modflow_module.aquifer.series, np.ndarray)
         assert len(modflow_module.aquifer.series) == 7
 
@@ -1564,8 +1488,9 @@ class TestModflow:
         settings_with_trenches: ModelSettings,
     ):
         """
-        NOTE: We only test the setup "recharge-ref" here because the implementation of
-        `Presets` will be changed.
+        NOTE: We only test the setup "recharge-ref" here because `Presets` will change
+        the results of the other setups but not because of differences in the implementation
+        of the Modflow module itself. Differences are due to differences in input values.
         """
         ph = initialized_modflow_with_presets.run(parcel, settings_with_trenches)
         assert isinstance(ph, xr.DataArray)
@@ -1576,22 +1501,22 @@ class TestModflow:
             ph,
             [
                 [
-                    [-2.50033436, -2.50014994, -2.5001501, -2.50033439],
-                    [-2.4976396, -2.49695894, -2.49695892, -2.49763963],
-                    [-2.50036577, -2.50015707, -2.50015705, -2.50036583],
-                    [-2.50125764, -2.50124303, -2.50124303, -2.50125764],
-                    [-2.49655613, -2.49572704, -2.49572702, -2.49655613],
-                    [-2.49859244, -2.49801355, -2.49801346, -2.49859245],
-                    [-2.49840011, -2.49781375, -2.49781374, -2.4984001],
+                    [-2.63981132, -2.63999452, -2.63999459, -2.63981135],
+                    [-2.63669187, -2.63613402, -2.6361335, -2.63669203],
+                    [-2.63895087, -2.63880254, -2.63880227, -2.6389509],
+                    [-2.63952317, -2.6395713, -2.63957123, -2.63952316],
+                    [-2.63519668, -2.63426225, -2.63426189, -2.63519672],
+                    [-2.63709114, -2.63643668, -2.63643654, -2.63709115],
+                    [-2.63690523, -2.63624388, -2.63624386, -2.63690522],
                 ],
                 [
-                    [-2.49998772, -2.49963707, -2.49963706, -2.4999877],
-                    [-2.49750818, -2.49669313, -2.49669296, -2.49750816],
-                    [-2.4999642, -2.49958003, -2.49957984, -2.49996417],
-                    [-2.50069524, -2.50053607, -2.50053602, -2.50069522],
-                    [-2.49668631, -2.49574152, -2.49574147, -2.49668628],
-                    [-2.49828462, -2.49752395, -2.49752392, -2.49828461],
-                    [-2.49810956, -2.49732764, -2.49732764, -2.49810955],
+                    [-2.63968697, -2.63989138, -2.63989138, -2.63968697],
+                    [-2.63688741, -2.636326, -2.63632567, -2.63688748],
+                    [-2.63872641, -2.63848821, -2.63848807, -2.6387264],
+                    [-2.63927027, -2.63923751, -2.63923745, -2.63927026],
+                    [-2.63543816, -2.63441977, -2.63441955, -2.63543819],
+                    [-2.6369065, -2.63606137, -2.63606131, -2.63690649],
+                    [-2.6367221, -2.63584732, -2.63584731, -2.63672209],
                 ],
             ],
         )

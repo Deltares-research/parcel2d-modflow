@@ -6,7 +6,7 @@ platforms = ["win-64", "linux-64"]
 version = "0.1.0"
 
 [tasks]
-format = "ruff format --check ."
+format = "ruff format ."
 lint = "ruff check --fix ."
 install-hooks = "pre-commit install"
 precommit-run = "pre-commit run --all-files"
