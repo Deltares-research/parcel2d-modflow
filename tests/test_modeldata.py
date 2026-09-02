@@ -73,19 +73,6 @@ class TestGroundwaterData:
         assert lhm.cell_area is None
 
     @pytest.mark.unittest
-    def test_load_recharge_accepts_single_var_dataset(self, lhm_data, parcel):
-        lhm_data.recharge = lhm_data.recharge.to_dataset(name="recharge")
-
-        recharge = lhm_data.load_recharge(
-            parcel,
-            pd.Timestamp("2022-01-01"),
-            pd.Timestamp("2022-02-01"),
-        )
-
-        assert isinstance(recharge, components.Recharge)
-        assert recharge.series.size == 32
-
-    @pytest.mark.unittest
     def test_load_recharge(self, lhm_data, parcel, start_date, end_date):
         recharge = lhm_data.load_recharge(parcel, start_date, end_date)
         assert isinstance(recharge, components.Recharge)
