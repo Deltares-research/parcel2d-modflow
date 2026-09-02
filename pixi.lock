@@ -8874,6 +8874,7 @@ packages:
   - numpy
   - pandas
   - pydantic
+  - python-dotenv
   - rioxarray
   - shapely
   - sqlalchemy

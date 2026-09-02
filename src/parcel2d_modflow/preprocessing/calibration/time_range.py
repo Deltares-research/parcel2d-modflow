@@ -1,4 +1,3 @@
-# %%
 import warnings
 from typing import Any, Optional, Sequence
 
@@ -143,6 +142,3 @@ def update_time_range_from_inputdata(
             pd.Series(data_time.max(), index=end_time.index), min
         )
     return start_time, end_time
-
-
-# %%

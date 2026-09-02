@@ -34,15 +34,14 @@ pooch = "*"
 pre-commit = "*"
 pyinstrument = "*"
 deptry = "*"
-ipykernel = ">=7.3.0,<8"
-pip = ">=26.2.1,<27"
-psycopg2 = ">=2.9.12,<3"
-python-dotenv = ">=1.2.3,<2"
+ipykernel = "*"
+pip = "*"
+psycopg2 = "*"
+python-dotenv = "*"
 
 [pypi-dependencies]
 parcel2d_modflow = { path = ".", editable = true }
 psycopg = { version = "*", extras = ["binary"] }
-python-dotenv = "*"
 
 [feature.docs.dependencies]
 sphinx = "*"

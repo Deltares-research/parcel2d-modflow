@@ -1,8 +1,4 @@
-# %%
-from typing import Optional
-
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 from shapely import from_wkt
 
@@ -165,6 +161,3 @@ def rename_parcel_columns(parcel_df: pd.DataFrame) -> pd.DataFrame:
     }
 
     return parcel_df.rename(columns=rename_dict)
-
-
-# %%

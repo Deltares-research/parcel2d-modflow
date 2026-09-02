@@ -1,10 +1,8 @@
 import pandas as pd
-import xarray as xr
 
 from parcel2d_modflow.io.postgis import read_timeseries_from_database
 
 
-# %%
 def load_parcel_ditches_from_db(gdf, connection) -> pd.DataFrame:
     """
     Load ditch stage data for the ditches associated with the parcels in the provided GeoDataFrame
