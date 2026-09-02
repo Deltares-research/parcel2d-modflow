@@ -512,18 +512,13 @@ class Presets:
 
         Parameters
         ----------
+        parcel : :class:`~parcel2d_modflow.base.Parcel`
+            Parcel for which the preset SSI or PSSI stage data is loaded.
+        settings : :class:`~parcel2d_modflow.base.ModelSettings`
+            General settings for the model run containing the date range to load the
+            SSI or PSSI stage data for.
         measure : str
             Name of the measure to load. Can be either "ssi" or "pssi".
-        date_range : pd.DatetimeIndex
-            Date range of the modelling period to load the SSI or PSSI data for.
-        drain_depth : int | float
-            Depth of a drain in meters below surface level. The default is None.
-        drain_distance : int | float
-            Distance between drains in meters. The default is None.
-        surface_level : int | float
-            Surface level of a parcel (m +NAP).
-        min_drain_depth : int | float, optional
-            Minimum drainage depth for SSI or PSSI measure in meters. The default is 0.2.
 
         Returns
         -------

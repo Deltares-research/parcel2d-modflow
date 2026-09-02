@@ -7,7 +7,7 @@ from numpy.testing import assert_array_equal
 from parcel2d_modflow import config
 from parcel2d_modflow.exceptions import ValidationError
 from parcel2d_modflow.io import read
-from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Soilmap
+from parcel2d_modflow.modeldata import GroundwaterData, ModelData, Presets, Soilmap
 
 
 @pytest.fixture
@@ -88,6 +88,7 @@ def test_read_data_from_config(config_instance):
     assert isinstance(model_data.groundwater, GroundwaterData)
     assert isinstance(model_data.soilmap, Soilmap)
     assert isinstance(model_data.parameters, pd.DataFrame)
+    assert isinstance(model_data.presets, Presets)
 
 
 @pytest.mark.unittest
@@ -184,3 +185,15 @@ def test_read_modflow_parameters(
         ValidationError, match="Modflow parameters DataFrame is missing columns:"
     ):
         read.read_modflow_parameters(modflow_parameter_file_missing_columns)
+
+
+@pytest.mark.xfail(
+    reason="Dimension names in test_ditch_da do not match expected names. First make choice about dimension names in the model run and then adapt test_ditch_da accordingly."
+)
+@pytest.mark.unittest
+def test_read_presets(testdatadir):
+    nc_file = testdatadir / "test_ditch_da.nc"
+    presets = read.read_presets(ditch_stage_nc=nc_file, ssi_stage_nc=nc_file)
+    assert isinstance(presets, Presets)
+    assert isinstance(presets.ditch_stage, xr.DataArray)
+    assert isinstance(presets.pssi_stage, xr.DataArray)

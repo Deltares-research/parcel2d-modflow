@@ -80,10 +80,9 @@ def read_data_from_config(config: Config) -> ModelData:
     soilmap = read_bro_soilmap(config.data.soilmap_gpkg)
     parameters = read_modflow_parameters(config.modflow_settings.parameters)
     presets = read_presets(
-        ditch_stage_nc=config.data.ditchlvl_nc,
+        ditch_stage_nc=config.data.ditch_level_nc,
         ssi_stage_nc=config.data.ssi_stage_nc,
     )
-    # Read presets if available
     return ModelData(parcels, gw_data, soilmap, parameters, presets)
 
 
