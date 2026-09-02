@@ -6,6 +6,10 @@ class ValidationError(Parcel2dModflowError):
     """Exception raised for errors in the input validation."""
 
 
+class InvalidPresetDataError(ValidationError):
+    """Exception raised for invalid preset data errors."""
+
+
 class InvalidInputError(Parcel2dModflowError):
     """Exception raised for invalid input data."""
 

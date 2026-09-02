@@ -226,6 +226,8 @@ class InputData(BaseModel):
     flux_nc: Path
     recharge_nc: Path
     soilmap_gpkg: Path
+    ditch_level_nc: Path | None = None
+    ssi_stage_nc: Path | None = None
 
 
 class OutputSettings(BaseModel):

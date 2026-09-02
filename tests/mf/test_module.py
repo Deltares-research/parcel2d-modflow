@@ -428,9 +428,8 @@ class TestModflow:
         parcel: Parcel,
         lhm_data: GroundwaterData,
         model_settings: ModelSettings,
-        empty_presets: Presets,
     ):
-        modflow_module._load_aquifer(parcel, lhm_data, model_settings, empty_presets)
+        modflow_module._load_aquifer(parcel, lhm_data, model_settings)
 
         assert isinstance(modflow_module.aquifer, components.ModflowInputSeries)
         assert modflow_module.aquifer.start == -0.000936158816
@@ -542,12 +541,11 @@ class TestModflow:
         modflow_module._load_ditches(parcel, model_settings, presets)
 
         assert isinstance(modflow_module.ditches, components.Ditches)
-        assert np.isclose(modflow_module.ditches.bottom, -2.9099, atol=1e-4)
+        assert np.isclose(modflow_module.ditches.bottom, -3.074342881812138)
         assert modflow_module.ditches.resistance == 1.0
-        assert_array_almost_equal(modflow_module.ditches.stage, [-2.5014], decimal=4)
+        assert_array_almost_equal(modflow_module.ditches.stage, [-2.63946319])
         assert_array_equal(
-            modflow_module.ditches.dates,
-            pd.DatetimeIndex(["2022-01-01"]),
+            modflow_module.ditches.dates, pd.DatetimeIndex(["2022-01-01"])
         )
 
     @pytest.mark.parametrize(
@@ -586,11 +584,19 @@ class TestModflow:
         modflow_module.measure = "ssi"
         modflow_module._load_ssi(parcel, model_settings, presets)
         assert isinstance(modflow_module.ssi, components.SsiMeasure)
-        assert modflow_module.ssi.drain_depth == -2.71
+        assert modflow_module.ssi.drain_depth == -2.8743428818121384
         assert modflow_module.ssi.drain_distance == 1
         assert_array_almost_equal(
             modflow_module.ssi.drain_stage,
-            [-2.51, -2.51, -2.51, -2.5, -2.5, -2.49, -2.49],
+            [
+                -2.60550536,
+                -2.67214942,
+                -2.67434288,
+                -2.64338072,
+                -2.62383385,
+                -2.64847919,
+                -2.60855089,
+            ],
         )
         assert_array_equal(
             modflow_module.ssi.time,
@@ -618,11 +624,19 @@ class TestModflow:
         modflow_module.measure = "pssi"
         modflow_module._load_ssi(parcel, model_settings, presets)
         assert isinstance(modflow_module.ssi, components.SsiMeasure)
-        assert modflow_module.ssi.drain_depth == -2.71
+        assert modflow_module.ssi.drain_depth == -2.7
         assert modflow_module.ssi.drain_distance == 1
         assert_array_almost_equal(
             modflow_module.ssi.drain_stage,
-            [-2.51, -2.51, -2.50, -2.5, -2.5, -2.49, -2.49],
+            [
+                -2.30550536,
+                -2.37214942,
+                -2.37434288,
+                -2.34338072,
+                -2.32383385,
+                -2.34847919,
+                -2.30855089,
+            ],
         )
         assert_array_equal(
             modflow_module.ssi.time,

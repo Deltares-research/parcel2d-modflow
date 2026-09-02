@@ -1,6 +1,7 @@
 [project]
 maintainers = [
     {name = "Bas Knaake", email = "bas.knaake@deltares.nl"},
+    {name = "Teun van Woerkom", email = "teun.vanwoerkom@deltares.nl"},
 ]
 dependencies = [
     "flopy",
@@ -8,8 +9,10 @@ dependencies = [
     "numpy",
     "pandas",
     "pydantic",
+    "python-dotenv",
     "loguru",
     "rioxarray",
+    "sqlalchemy",
     "shapely",
     "xarray",
 ]

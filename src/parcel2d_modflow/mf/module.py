@@ -287,9 +287,11 @@ class Modflow(AbstractModule):
         if self.gw_recharge_method == "precip_evap":
             self._load_precip_evap_data(parcel, weather, settings)
         elif self.gw_recharge_method == "recharge":
-            self._load_recharge(parcel, lhm, settings, presets)
+            self._recharge = lhm.load_recharge(
+                parcel, settings.start_date, settings.end_date
+            )
 
-        self._load_aquifer(parcel, lhm, settings, presets)
+        self._load_aquifer(parcel, lhm, settings)
         self._load_ditches(parcel, settings, presets)
 
         if settings.add_trenches:
@@ -437,34 +439,6 @@ class Modflow(AbstractModule):
             thickness, lithology, geology, kvalues
         )
 
-    def _load_recharge(
-        self,
-        parcel: Parcel,
-        lhm: GroundwaterData,
-        settings: ModelSettings,
-        presets: Presets,
-    ) -> None:
-        """
-        Load LHM recharge data for the Modflow model for a given parcel and time period.
-
-        Parameters
-        ----------
-        parcel : :class:`~parcel2d_modflow.Parcel`
-            Parcel for which the recharge data is loaded at xy-location.
-        lhm : :class:`~parcel2d_modflow.modeldata.GroundwaterData`
-            LHM data container to select the recharge information for the parcel.
-        settings : :class:`~parcel2d_modflow.ModelSettings`
-            General settings for the model run.
-        presets : :class:`~parcel2d_modflow.modeldata.Presets`
-            Optional `Presets` containing an optional daily time series of recharge
-            data for the ModflowModel in m/d. The default is None.
-
-        """
-        if presets.recharge is not None:
-            self._recharge = presets.load_recharge(settings)
-        else:
-            self._recharge = lhm.load_recharge(parcel, settings)
-
     def _load_precip_evap_data(
         self, parcel: Parcel, weather: WeatherData, settings: ModelSettings
     ) -> None:
@@ -493,7 +467,6 @@ class Modflow(AbstractModule):
         parcel: Parcel,
         lhm: GroundwaterData,
         settings: ModelSettings,
-        presets: Presets,
     ) -> None:
         """
         Load LHM flux data for the Modflow model for a given parcel and time period.
@@ -506,9 +479,6 @@ class Modflow(AbstractModule):
             LHM data container to select the flux information for the parcel.
         settings : :class:`~parcel2d_modflow.ModelSettings`
             General settings for the model run.
-        presets : :class:`~parcel2d_modflow.modeldata.Presets`
-            Optional `Presets` containing an optional daily time series of flux data
-            for the ModflowModel in m/d. The default is None.
 
         Raises
         ------
@@ -516,15 +486,11 @@ class Modflow(AbstractModule):
             Raises an error for aquifer methods that have not been implemented yet.
 
         """
-        if self.aquifer_method == "flux":
-            if presets.aquifer_flux is not None:
-                self._aquifer = presets.load_aquifer_flux(settings)
-            else:
-                self._aquifer = lhm.load_aquifer_flux(parcel, settings)
-        else:
+        if self.aquifer_method != "flux":
             raise NotImplementedError(
                 "Only 'flux' method for aquifer in a Modflow model is implemented for now."
             )
+        self._aquifer = lhm.load_aquifer_flux(parcel, settings)
 
     def _load_ditches(
         self, parcel: Parcel, settings: ModelSettings, presets: Presets
@@ -544,7 +510,7 @@ class Modflow(AbstractModule):
 
         """
         if presets.ditch_stage is not None:
-            self._ditches = presets.load_ditches(settings, parcel.surface_level)
+            self._ditches = presets.load_ditches(parcel, settings)
         else:
             self._ditches = parcel.load_ditches(
                 settings.date_range,
@@ -572,14 +538,7 @@ class Modflow(AbstractModule):
 
         """
         if presets.ditch_stage is not None or presets.pssi_stage is not None:
-            self._ssi = presets.load_ssi_measure(
-                self.measure,
-                settings.date_range,
-                parcel.drain_depth,
-                parcel.drain_distance,
-                parcel.surface_level,
-                settings.min_drain_depth,
-            )
+            self._ssi = presets.load_ssi_measure(parcel, settings, self.measure)
         else:
             self._ssi = parcel.load_ssi_measure(
                 settings.date_range, settings.winter_period, settings.min_drain_depth
