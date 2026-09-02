@@ -228,9 +228,6 @@ class InputData(BaseModel):
     soilmap_gpkg: Path
     ditch_level_nc: Path | None = None
     ssi_stage_nc: Path | None = None
-    piezobs_nc: Path | None = (
-        None  # TODO: is Piezobs_nc relevant in the model run for calibration? If not, remove.
-    )
 
 
 class OutputSettings(BaseModel):
