@@ -48,7 +48,7 @@ def soilmap_files(tmp_path, soilmap):
     return soilmap_file, soilprofiles_file
 
 
-class TestLhmData:
+class TestGroundwaterData:
     @staticmethod
     def _as_dataarray(obj):
         if isinstance(obj, xr.Dataset) and len(obj.data_vars) == 1:

@@ -9,7 +9,6 @@ from shapely import from_wkt
 from parcel2d_modflow.preprocessing.calibration.time_range import select_time_range
 
 
-# %%
 def preprocess_calibration_parcels(
     calibration_wells_df: pd.DataFrame,
     flux_data=None,
@@ -19,7 +18,9 @@ def preprocess_calibration_parcels(
     ditch_da=None,
 ) -> gpd.GeoDataFrame:
     """
-    Preprocess calibration parcels by renaming columns, selecting the valid time range, and creating a GeoDataFrame.
+    Preprocess calibration parcels by renaming columns, selecting the valid time range,
+    and creating a GeoDataFrame.
+
     """
     agg_funcs = {col: "first" for col in calibration_wells_df.columns}
     agg_funcs.update({"start_date": "min", "end_date": "max", "well_id": set})
@@ -62,7 +63,8 @@ def select_correct_time_range(
 
 
 def create_parcel_gdf(parcel_df: pd.DataFrame) -> gpd.GeoDataFrame:
-    """Construct a GeoDataFrame from a parcel table using the parcel geometry column.
+    """
+    Construct a GeoDataFrame from a parcel table using the parcel geometry column.
 
     Parameters
     ----------
@@ -75,8 +77,8 @@ def create_parcel_gdf(parcel_df: pd.DataFrame) -> gpd.GeoDataFrame:
         GeoDataFrame with ``parcel_geom`` converted to Shapely geometries, assigned the
         Dutch national CRS (EPSG:28992), and with centroid-based ``parcel_x`` and
         ``parcel_y`` columns added.
-    """
 
+    """
     if (
         not parcel_df["parcel_geom"]
         .map(lambda geom: geom is not None and hasattr(geom, "geom_type"))
@@ -92,7 +94,8 @@ def create_parcel_gdf(parcel_df: pd.DataFrame) -> gpd.GeoDataFrame:
 
 
 def rename_parcel_columns(parcel_df: pd.DataFrame) -> pd.DataFrame:
-    """Rename parcel columns to the canonical schema used by the model.
+    """
+    Rename parcel columns to the canonical schema used by the model.
 
     Parameters
     ----------
@@ -104,6 +107,7 @@ def rename_parcel_columns(parcel_df: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         A copy of the input dataframe with columns renamed according to the internal
         parcel naming convention used downstream in the preprocessing pipeline.
+
     """
     required_columns = {
         "name",
