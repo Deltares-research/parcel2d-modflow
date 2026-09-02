@@ -43,6 +43,12 @@ python-dotenv = "*"
 parcel2d_modflow = { path = ".", editable = true }
 psycopg = { version = "*", extras = ["binary"] }
 
+[feature.py313.dependencies]
+python = "3.13.*"
+
+[feature.py314.dependencies]
+python = "3.14.*"
+
 [feature.docs.dependencies]
 sphinx = "*"
 pydata-sphinx-theme = "*"
@@ -57,4 +63,7 @@ rm-generated = "rm -r ./docs/api_reference/generated"
 rebuild-docs = { depends-on = ["rm-jupyter", "rm-build", "rm-generated", "build-docs"] }
 
 [environments]
-docs = ["docs"]
+default = { features = ["py314"], solve-group = "py314" }
+docs = { features = ["docs", "py314"], solve-group = "py314" }
+py314 = { features = ["py314"], solve-group = "py314" }
+py313 = { features = ["py313"], solve-group = "py313" }
