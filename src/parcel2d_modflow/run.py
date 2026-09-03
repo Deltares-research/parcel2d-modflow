@@ -4,22 +4,18 @@ import itertools
 import multiprocessing
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-import xarray as xr
 from loguru import logger
 
 from parcel2d_modflow.aggregation import calculate_lg3
-from parcel2d_modflow.base import Parcel
 from parcel2d_modflow.io.read import read_data_from_config
 from parcel2d_modflow.io.write import write_batch
 from parcel2d_modflow.logging import init_logger
 from parcel2d_modflow.mf import Modflow
 from parcel2d_modflow.preprocessing.parcels import prepare_parcels
-from parcel2d_modflow.validation import validate_parcels
 
 if TYPE_CHECKING:
     import geopandas as gpd
