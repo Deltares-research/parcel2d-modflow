@@ -221,6 +221,7 @@ class ModflowSettings(BaseModel):
 
 
 class InputData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     parcels: Path
     confining_nc: Path
     flux_nc: Path
@@ -228,6 +229,7 @@ class InputData(BaseModel):
     soilmap_gpkg: Path
     ditch_level_nc: Path | None = None
     ssi_stage_nc: Path | None = None
+    piezobs_nc: Path | None = None
 
 
 class OutputSettings(BaseModel):

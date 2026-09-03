@@ -63,6 +63,12 @@ def run_config(config: Config, *, write_batches: bool = False):
 
 
 def run_calibration(config: Config):
+    if config.settings.save_phreatic_head is False:
+        raise TypeError(
+            "Calibration runs require the output from modflow phreatic heads. Add "
+            "`save-phreatic-head=true` in the `settings` section of the config file."
+        )
+
     data = read_data_from_config(config)
 
     results: list[pd.DataFrame] = []
@@ -229,8 +235,10 @@ def _prepare_parcels(
 ):
     parcel_attributes = parcels.columns
     for p in parcels.itertuples(index=False):
-        temp_dir_name = f"{p.name}_{p.soilcode}"
-        Path(settings.workdir / temp_dir_name).mkdir(exist_ok=True, parents=True)
+        settings.workdir.joinpath(f"{p.name}_{p.soilcode}").mkdir(
+            exist_ok=True, parents=True
+        )  # Create working directory for Modflow files for each parcel
+
         parcel = Parcel(**dict(zip(parcel_attributes, p)))
 
         if parcel.soilcode is None:

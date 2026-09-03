@@ -87,12 +87,23 @@ class Modflow(AbstractModule):
         self._ditches = None
         self._trenches = None
         self._ssi = None
+        self._phreatic_head = None
         self._success_and_failures = None
 
     def __repr__(self):
         aquifer_method = self.aquifer_method
         measure = self.measure
         return f"{self.__class__.__name__}({aquifer_method=}, {measure=})"
+
+    @property
+    def phreatic_head(self) -> np.ndarray:
+        """
+        Pre-allocated array for the phreatic head output of all runs with dimensions
+        (runs, time, x) and filled with NaN values. Available after initialization of
+        the module for a given :class:`~parcel2d_modflow.base.Parcel`.
+
+        """
+        return self._phreatic_head
 
     @property
     def discretization(self) -> components.SubsurfaceStructure:
@@ -228,14 +239,7 @@ class Modflow(AbstractModule):
         if settings.dimension == "1D":
             raise NotImplementedError("1D Modflow model not implemented")
 
-        phreatic_head = np.full(
-            (
-                len(self.parameters),
-                len(settings.date_range),
-                len(parcel.discretization.xcol),
-            ),
-            np.nan,
-        )  # Pre-allocate array for phreatic head output of all runs with dimensions (runs, time, x) and fill with NaN values
+        self._pre_allocate_phreatic_head_result(parcel, settings)
 
         complexity = "SIMPLE"
         logger.debug(
@@ -245,8 +249,8 @@ class Modflow(AbstractModule):
             complexity=complexity,
         )
         model = self.create_modflow_model(parcel, settings, complexity)
-        phreatic_head, success_simple, failure_simple = self.run_modflow_model(
-            model, self.parameters, phreatic_head, settings.start_date
+        success_simple, failure_simple = self.run_modflow_model(
+            model, self.parameters, settings
         )
 
         if failure_simple:
@@ -258,11 +262,8 @@ class Modflow(AbstractModule):
                 complexity=complexity,
             )
             model = self.create_modflow_model(parcel, settings, complexity)
-            phreatic_head, success_complex, failure_complex = self.run_modflow_model(
-                model,
-                self.parameters.loc[failure_simple],
-                phreatic_head,
-                settings.start_date,
+            success_complex, failure_complex = self.run_modflow_model(
+                model, self.parameters.loc[failure_simple], settings
             )
         else:
             success_complex = []
@@ -271,16 +272,8 @@ class Modflow(AbstractModule):
         self._success_and_failures = Runs(
             success_simple, failure_simple, success_complex, failure_complex
         )
-        phreatic_head = xr.DataArray(
-            data=phreatic_head,
-            coords={
-                "runs": self.parameters.runnr,
-                "time": settings.date_range,
-                "x": parcel.discretization.xcol,
-            },
-            dims=("runs", "time", "x"),
-        )
-        return phreatic_head.isel(runs=success_simple + success_complex)
+
+        return self._phreatic_head.isel(runs=success_simple + success_complex)
 
     def reset(self) -> None:
         """
@@ -293,7 +286,40 @@ class Modflow(AbstractModule):
         self._ditches = None
         self._trenches = None
         self._ssi = None
+        self._phreatic_head = None
         self._success_and_failures = None
+
+    def _pre_allocate_phreatic_head_result(
+        self, parcel: Parcel, settings: ModelSettings
+    ) -> None:
+        """
+        Pre-allocate an `xarray.DataArray` for the phreatic head output of all runs with
+        dimensions (runs, time, x) and fill with NaN values.
+
+        Parameters
+        ----------
+        parcel : :class:`~parcel2d_modflow.base.Parcel`
+            `Parcel` for which the phreatic head is pre-allocated.
+        settings : :class:`~parcel2d_modflow.config.ModelSettings`
+            General settings for the SOMERS model run.
+
+        """
+        self._phreatic_head = xr.DataArray(
+            np.full(
+                (
+                    len(self.parameters),
+                    len(settings.date_range),
+                    len(parcel.discretization.xcol),
+                ),
+                np.nan,
+            ),
+            coords={
+                "runs": self.parameters.runnr,
+                "time": settings.date_range,
+                "x": parcel.discretization.xcol,
+            },
+            dims=("runs", "time", "x"),
+        )
 
     def _discretize_parcel(
         self,
@@ -467,8 +493,7 @@ class Modflow(AbstractModule):
         self,
         model,
         parameters: pd.DataFrame,
-        result: np.ndarray,
-        start_date: pd.Timestamp,
+        settings: ModelSettings,
     ) -> tuple[list, list]:
         """
         Run an initialized `ModflowModel` with given stochastic parameters. This runs all
@@ -478,17 +503,13 @@ class Modflow(AbstractModule):
 
         Parameters
         ----------
-        model : :class:`~somers.groundwater.model.ModflowModel`
+        model : :class:`~parcel2d_modflow.mf._model.ModflowModel`
             Initialized `ModflowModel` instance containing Modflow 6 modelling components
             to run the groundwater model.
         parameters : pd.DataFrame
             Parameter combinations for each run to run the Modflow model with.
-        result : np.ndarray
-            Pre-allocated array to store the phreatic head output of all runs with dimensions
-            (runs, time, x) and filled with NaN values.
-        start_date : pd.Timestamp
-            Start date of the model run to select the corresponding phreatic head output
-            from the model results.
+        settings : :class:`~parcel2d_modflow.config.ModelSettings`
+            NamedTuple containing general settings for the SOMERS model run.
 
         Returns
         -------
@@ -536,7 +557,9 @@ class Modflow(AbstractModule):
                 logger.debug("Run failed with parameters: {params}", params=params)
                 failure_runs.append(runnr)
             else:
-                result[runnr, :, :] = ph_run.sel(time=slice(start_date, None)).values
+                self._phreatic_head[runnr, ...] = ph_run.sel(
+                    time=settings.date_range
+                ).values
                 success_runs.append(runnr)
 
-        return result, success_runs, failure_runs
+        return success_runs, failure_runs
