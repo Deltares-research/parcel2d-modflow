@@ -45,6 +45,28 @@ def invalid_bro_soilmap(testdatadir):
     return testdatadir / "test_invalid_soilmap_v2023.gpkg"
 
 
+@pytest.fixture
+def input_data_with_optional_data(
+    testdatadir, weather_station_shape, weather_regions, presets, tmp_path
+):
+    ditch_level_nc = tmp_path / "test_ditch_da.nc"
+    presets.ditch_stage.to_netcdf(ditch_level_nc)
+    pssi_stage_nc = tmp_path / "test_pssi_da.nc"
+    presets.pssi_stage.to_netcdf(pssi_stage_nc)
+    return config.InputData(
+        parcels=testdatadir / "test_parcels.geoparquet",
+        confining_nc=testdatadir / "lhm_confining.nc",
+        flux_nc=testdatadir / "lhm_flux.nc",
+        recharge_nc=testdatadir / "lhm_recharge.nc",
+        soilmap_gpkg=testdatadir / "test_soilmap_v2023.gpkg",
+        weather_stations=weather_station_shape,
+        knmi_measurements=testdatadir / "knmi_measurements.txt",
+        weather_regions=weather_regions,
+        ditch_level_nc=ditch_level_nc,
+        pssi_stage_nc=pssi_stage_nc,
+    )
+
+
 @pytest.mark.unittest
 def test_read_config(testdatadir):
     config_file = testdatadir / "config_parcel2d.toml"
@@ -94,8 +116,28 @@ def test_read_data_from_config(config_instance):
     assert isinstance(model_data.parcels, gpd.GeoDataFrame)
     assert isinstance(model_data.groundwater, GroundwaterData)
     assert isinstance(model_data.soilmap, Soilmap)
+    assert model_data.weather is None  # Weather data is optional
     assert isinstance(model_data.parameters, pd.DataFrame)
     assert isinstance(model_data.presets, Presets)
+    assert model_data.presets.ditch_stage is None  # Presets are optional
+    assert model_data.presets.pssi_stage is None  # Presets are optional
+
+
+@pytest.mark.unittest
+def test_read_data_from_config_with_optional_data(
+    config_instance, input_data_with_optional_data
+):
+    config = config_instance.model_copy(update={"data": input_data_with_optional_data})
+    model_data = read.read_data_from_config(config)
+    assert isinstance(model_data, ModelData)
+    assert isinstance(model_data.parcels, gpd.GeoDataFrame)
+    assert isinstance(model_data.groundwater, GroundwaterData)
+    assert isinstance(model_data.soilmap, Soilmap)
+    assert isinstance(model_data.weather, WeatherData)
+    assert isinstance(model_data.parameters, pd.DataFrame)
+    assert isinstance(model_data.presets, Presets)
+    assert isinstance(model_data.presets.ditch_stage, xr.DataArray)
+    assert isinstance(model_data.presets.pssi_stage, xr.DataArray)
 
 
 @pytest.mark.unittest
@@ -248,7 +290,7 @@ def test_read_knmi_temperature(knmi_measurement_data):
 @pytest.mark.unittest
 def test_read_presets(testdatadir):
     nc_file = testdatadir / "test_ditch_da.nc"
-    presets = read.read_presets(ditch_stage_nc=nc_file, ssi_stage_nc=nc_file)
+    presets = read.read_presets(ditch_level_nc=nc_file, ssi_stage_nc=nc_file)
     assert isinstance(presets, Presets)
     assert isinstance(presets.ditch_stage, xr.DataArray)
     assert isinstance(presets.pssi_stage, xr.DataArray)

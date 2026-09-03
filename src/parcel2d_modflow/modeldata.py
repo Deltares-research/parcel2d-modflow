@@ -624,17 +624,11 @@ class WeatherData:
         measurements.to_csv(path, **kwargs)
 
 
-# TODO: Figure out how to deal with Presets. So far, has not been used in any Somers work
-# but in the calibration of the Modflow model. Now, it only allows for loading a single
-# time series of aquifer flux, recharge, ditch stage and pssi stage data for a given
-# parcel. Also, these are in separate DataFrames. This is not very flexible and should be
-# improved in the future. Preferably, input data from Presets should be the same as
-# LhmData (Maybe rename this class then).
 @dataclass(repr=False)
 class Presets:
     resistance: int | float = None
-    ditch_stage: pd.DataFrame = None
-    pssi_stage: pd.DataFrame = None
+    ditch_stage: xr.DataArray = None
+    pssi_stage: xr.DataArray = None
     ditch_frequency: str = "7D"
     ssi_frequency: str = "D"
 

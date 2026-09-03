@@ -245,17 +245,6 @@ def config_instance(testdatadir, model_settings, modflow_executable, tmp_path):
     )
 
 
-def _create_preset(data, date_range, name):
-    """
-    Helper function to create a pandas DataFrame with a given name and date range to create
-    dummy input for preset variables.
-
-    """
-    data = pd.DataFrame(data, columns=[name], index=date_range)
-    data.index.name = "time"
-    return data
-
-
 @pytest.fixture
 def weather_station_shape(tmp_path):
     """
@@ -272,13 +261,13 @@ def weather_station_shape(tmp_path):
 
 
 @pytest.fixture
-def knmi_measurement_data():
+def knmi_measurement_data(testdatadir):
     """
     Small selection of KNMI temperature data for testing purposes in the format of data
     downloaded from https://daggegevens.knmi.nl/klimatologie/daggegevens.
 
     """
-    return Path(__file__).parent / "data/knmi_measurements.txt"
+    return testdatadir / r"knmi_measurements.txt"
 
 
 @pytest.fixture

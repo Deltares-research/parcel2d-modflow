@@ -231,7 +231,7 @@ class InputData(BaseModel):
     knmi_measurements: Path | None = None
     weather_regions: Path | None = None
     ditch_level_nc: Path | None = None
-    ssi_stage_nc: Path | None = None
+    pssi_stage_nc: Path | None = None
     piezobs_nc: Path | None = None
 
     @model_validator(mode="after")

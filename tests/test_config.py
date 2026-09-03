@@ -232,6 +232,32 @@ def test_data():
     assert isinstance(data.recharge_nc, Path)
     assert isinstance(data.soilmap_gpkg, Path)
 
+    data = config.InputData(
+        parcels="parcels.geoparquet",
+        confining_nc="confining.nc",
+        flux_nc="flux.nc",
+        recharge_nc="recharge.nc",
+        soilmap_gpkg="soilmap.gpkg",
+        weather_stations="weather_stations.geoparquet",
+        knmi_measurements="knmi_measurements.txt",
+        weather_regions="weather_regions.geoparquet",
+        ditch_level_nc="ditch_level.nc",
+        pssi_stage_nc="ssi_stage.nc",
+        piezobs_nc="piezobs.nc",
+    )
+    assert isinstance(data, config.InputData)
+    assert isinstance(data.parcels, Path)
+    assert isinstance(data.confining_nc, Path)
+    assert isinstance(data.flux_nc, Path)
+    assert isinstance(data.recharge_nc, Path)
+    assert isinstance(data.soilmap_gpkg, Path)
+    assert isinstance(data.weather_stations, Path)
+    assert isinstance(data.knmi_measurements, Path)
+    assert isinstance(data.weather_regions, Path)
+    assert isinstance(data.ditch_level_nc, Path)
+    assert isinstance(data.pssi_stage_nc, Path)
+    assert isinstance(data.piezobs_nc, Path)
+
     with pytest.raises(ValidationError):
         config.InputData(
             parcels="parcels.geoparquet",
@@ -242,7 +268,32 @@ def test_data():
         )
 
     with pytest.raises(ValidationError):
+        # Input missing required fields: confining_nc, flux_nc, recharge_nc, soilmap_gpkg
         config.InputData(parcels="parcels.geoparquet")
+
+    with pytest.raises(ValidationError):
+        config.InputData(
+            parcels="parcels.geoparquet",
+            confining_nc="confining.nc",
+            flux_nc="flux.nc",
+            recharge_nc="recharge.nc",
+            soilmap_gpkg="soilmap.gpkg",
+            unknown_field="value",  # Extra fields not allowed in the model
+        )
+
+    with pytest.raises(ValidationError):
+        # If weather input is given all three weather inputs must be provided, otherwise
+        # the model will raise a validation error.
+        config.InputData(
+            parcels="parcels.geoparquet",
+            confining_nc="confining.nc",
+            flux_nc="flux.nc",
+            recharge_nc="recharge.nc",
+            soilmap_gpkg="soilmap.gpkg",
+            weather_stations="stations.geoparquet",
+            knmi_measurements="knmi.txt",
+            weather_regions=None,
+        )
 
 
 @pytest.mark.unittest

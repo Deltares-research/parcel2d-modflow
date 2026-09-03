@@ -89,8 +89,8 @@ def read_data_from_config(config: Config) -> ModelData:
         weather = None
     parameters = read_modflow_parameters(config.modflow_settings.parameters)
     presets = read_presets(
-        ditch_stage_nc=config.data.ditch_level_nc,
-        ssi_stage_nc=config.data.ssi_stage_nc,
+        ditch_level_nc=config.data.ditch_level_nc,
+        ssi_stage_nc=config.data.pssi_stage_nc,
     )
     return ModelData(
         parcels=parcels,
@@ -176,28 +176,28 @@ def read_groundwater_data(
 
 
 def read_presets(
-    ditch_stage_nc: str | Path = None,
+    ditch_level_nc: str | Path = None,
     ssi_stage_nc: str | Path = None,
 ) -> modeldata.Presets:
     """
-    Read NetCDF files containing ditch stage and piezometer head data for the required
+    Read NetCDF files containing ditch level and piezometer head data for the required
     presets for modelling runs.
 
     Parameters
     ----------
-    ditch_stage_nc : str | Path
-        NetCDF file containing a time-series of ditch stage data.
+    ditch_level_nc : str | Path
+        NetCDF file containing a time-series of ditch level data.
     ssi_stage_nc : str | Path
         NetCDF file containing a time-series of SSI stage data.
 
     Returns
     -------
     :class:`~parcel2d_modflow.modeldata.Presets`
-        `Presets` instance containing the ditch stage and SSI stage data.
+        `Presets` instance containing the ditch level and SSI stage data.
 
     """
     ditch_stage = (
-        xr.open_dataarray(ditch_stage_nc) if ditch_stage_nc is not None else None
+        xr.open_dataarray(ditch_level_nc) if ditch_level_nc is not None else None
     )
     ssi_stage = xr.open_dataarray(ssi_stage_nc) if ssi_stage_nc is not None else None
 
