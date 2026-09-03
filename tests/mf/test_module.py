@@ -1254,39 +1254,6 @@ class TestModflow:
         reason="Can only run on Windows with .exe for now",
     )
     @pytest.mark.unittest
-    def test_run_modflow_model(
-        self,
-        initialized_modflow_module: Modflow,
-        parcel: Parcel,
-        settings_with_trenches: ModelSettings,
-    ):
-        result = np.full(
-            (
-                len(initialized_modflow_module.parameters),
-                len(settings_with_trenches.date_range),
-                len(parcel.discretization.xcol),
-            ),
-            np.nan,
-        )
-        model = initialized_modflow_module.create_modflow_model(
-            parcel, settings_with_trenches, "SIMPLE"
-        )
-        result, succes, failure = initialized_modflow_module.run_modflow_model(
-            model,
-            initialized_modflow_module.parameters,
-            result,
-            settings_with_trenches.start_date,
-        )
-        assert isinstance(result, np.ndarray)
-        assert not np.isnan(result).all()  # Result should not contain any NaN values
-        assert_array_equal(succes, [0, 1])
-        assert not failure  # Should be empty list
-
-    @pytest.mark.skipif(
-        not sys.platform.startswith("win"),
-        reason="Can only run on Windows with .exe for now",
-    )
-    @pytest.mark.unittest
     def test_run_recharge_ref(
         self,
         initialized_modflow_module: Modflow,

@@ -70,6 +70,12 @@ def run_config(config: Config, *, write_batches: bool = False):
 
 
 def run_calibration(config: Config):
+    if config.settings.save_phreatic_head is False:
+        raise TypeError(
+            "Calibration runs require the output from modflow phreatic heads. Add "
+            "`save-phreatic-head=true` in the `settings` section of the config file."
+        )
+
     data = read_data_from_config(config)
 
     results: list[pd.DataFrame] = []

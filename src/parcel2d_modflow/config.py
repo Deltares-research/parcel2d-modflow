@@ -222,7 +222,6 @@ class ModflowSettings(BaseModel):
 
 class InputData(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     parcels: Path
     confining_nc: Path
     flux_nc: Path
