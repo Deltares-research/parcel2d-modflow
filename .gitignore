@@ -26,6 +26,7 @@ parts/
 sdist/
 var/
 dev/
+src/parcel2d_modflow/postprocessing/
 wheels/
 *.egg-info/
 .installed.cfg
