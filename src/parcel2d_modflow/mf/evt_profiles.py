@@ -65,6 +65,7 @@ def calc_evt_profile(method_name: str) -> EVTProfile:
     evt_ext_depth = np.round(abs_segment_bottom.max(), 2)
     rel_segment_bottom = np.round(abs_segment_bottom / evt_ext_depth, 2)
     rel_segment_bottom = np.minimum(rel_segment_bottom, 0.999999)
+    rel_segment_bottom = np.maximum(rel_segment_bottom, 0.000001)
 
     return EVTProfile(
         evt_ext_depth=evt_ext_depth,

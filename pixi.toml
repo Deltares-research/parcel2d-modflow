@@ -38,6 +38,8 @@ ipykernel = "*"
 pip = "*"
 psycopg2 = "*"
 python-dotenv = "*"
+tqdm = ">=4.70.0,<5"
+dask = ">=2026.8.0,<2027"
 
 [pypi-dependencies]
 parcel2d_modflow = { path = ".", editable = true }

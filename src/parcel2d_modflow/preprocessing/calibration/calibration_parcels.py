@@ -19,7 +19,7 @@ def preprocess_calibration_parcels(
 
     """
     agg_funcs = {col: "first" for col in calibration_wells_df.columns}
-    agg_funcs.update({"start_date": "min", "end_date": "max", "well_id": set})
+    agg_funcs.update({"start_date": "min", "end_date": "max", "well_id": set, "distance_to_ditch_m": list})
     parcel_df = calibration_wells_df.groupby(
         ["aan_id", "transect", "parcel_type"], as_index=False
     ).agg(agg_funcs)
