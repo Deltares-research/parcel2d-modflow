@@ -40,6 +40,8 @@ psycopg2 = "*"
 python-dotenv = "*"
 tqdm = ">=4.70.0,<5"
 dask = ">=2026.8.0,<2027"
+h5py = ">=3.16.0,<4"
+netcdf4 = ">=1.7.4,<2"
 
 [pypi-dependencies]
 parcel2d_modflow = { path = ".", editable = true }
