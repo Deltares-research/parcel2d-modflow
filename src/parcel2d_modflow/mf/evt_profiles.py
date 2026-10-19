@@ -47,7 +47,7 @@ def evt_combi():
 def evt_boon():
     gw_stand = np.array([0.01, 0.1, 0.2, 0.4, 0.8, 1.2, 3.0])
     #email correspondentie met mevr. Boon met onderwerp 'RE: Verdampings-fit' van 28-09-2026
-    fraction = 0.8355 + 0.4689 * np.exp(gw_stand / 12.9768)
+    fraction = 0.8355 + 0.4689 * np.exp(-gw_stand*100 / 12.9768)
     return fraction, gw_stand
 
 EVT_METHODS = {
@@ -71,3 +71,5 @@ def calc_evt_profile(method_name: str) -> EVTProfile:
         rel_segment_bottom=rel_segment_bottom,
         evt_fraction_values=rel_segment_rate,
     )
+
+# %%

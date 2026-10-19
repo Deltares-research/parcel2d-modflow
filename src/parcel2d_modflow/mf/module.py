@@ -172,16 +172,6 @@ class Modflow(AbstractModule):
         return self._phreatic_head
 
     @property
-    def phreatic_head(self) -> np.ndarray:
-        """
-        Pre-allocated array for the phreatic head output of all runs with dimensions
-        (runs, time, x) and filled with NaN values. Available after initialization of
-        the module for a given :class:`~parcel2d_modflow.base.Parcel`.
-
-        """
-        return self._phreatic_head
-
-    @property
     def discretization(self) -> components.SubsurfaceStructure:
         """
         :class:`~parcel2d_modflow.components.SubsurfaceStructure` input for the Modflow model.
