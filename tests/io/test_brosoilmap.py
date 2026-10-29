@@ -8,6 +8,16 @@ from numpy.testing import assert_array_equal
 from parcel2d_modflow.io.soilmap import BroSoilmap
 
 
+@pytest.mark.unittest
+def test_read_soilmap_geometry(simple_bro_soilmap):
+    assert 1 == 2
+
+
+@pytest.mark.unittest
+def test_read_soilprofiles(simple_bro_soilmap):
+    assert 1 == 2
+
+
 class TestBroSoilmap:
     @pytest.mark.unittest
     def test_create_soilmap_with_units(self, simple_bro_soilmap):
