@@ -261,7 +261,7 @@ def run_parcels(
                 name=parcel.name,
                 soilcode=parcel.soilcode,
             )
-            model_results.append(np.full((len(years), np.nan)))
+            model_results.append(np.full(len(years), np.nan))
         else:
             if settings.save_phreatic_head:
                 name_soilcode = f"{parcel.name}_{parcel.soilcode}"
