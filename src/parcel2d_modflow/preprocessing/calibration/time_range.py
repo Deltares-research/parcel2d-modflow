@@ -48,7 +48,7 @@ def select_time_range(
             recharge_data, start_time, end_time
         )
     if weather_data is not None:
-        weather_data.rename(columns={"YYYYMMDD": "time"}, inplace=True)
+        weather_data = weather_data.rename(columns={"YYYYMMDD": "time"})
         start_time, end_time = update_time_range_from_inputdata(
             weather_data, start_time, end_time
         )

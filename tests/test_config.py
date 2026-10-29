@@ -27,7 +27,7 @@ def test_model_settings():
         workdir=workdir, start_date=start_date, end_date=end_date
     )
 
-    expected_date_range = pd.date_range(start_date, end_date, freq="d")
+    expected_date_range = pd.date_range(start_date, end_date, freq="D")
     assert isinstance(settings, config.ModelSettings)
     assert isinstance(settings.workdir, Path)
     assert isinstance(settings.start_date, pd.Timestamp)

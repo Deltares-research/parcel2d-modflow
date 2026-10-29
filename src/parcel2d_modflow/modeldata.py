@@ -453,7 +453,7 @@ class WeatherData:
         adds a new column "corrected_air_temp" to the temperature DataFrame.
 
         """
-        dayofyear = self.measurements.index.dayofyear
+        dayofyear = self.measurements.index.day_of_year
         a, b, c, d = self.correction_params
         correction = a * np.sin(dayofyear * b - c) + d
         corrected = self.measurements["TG"] + correction

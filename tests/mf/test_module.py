@@ -1523,7 +1523,7 @@ class TestModflow:
         not sys.platform.startswith("win"),
         reason="Can only run on Windows with .exe for now",
     )
-    @pytest.mark.integration
+    @pytest.mark.unittest
     def test_initialize_and_run_modflow(
         self,
         modflow_parameters: pd.DataFrame,

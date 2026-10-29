@@ -311,7 +311,7 @@ def presets():
     # Create dummy seasonal variation following a sinus curve with amplitude of 0.2 and
     # a period of one year and add some random noise.
     rng = np.random.default_rng(seed=42)
-    season_variation = 0.2 * np.sin(2 * np.pi * (time.dayofyear - 91) / 365.25)
+    season_variation = 0.2 * np.sin(2 * np.pi * (time.day_of_year - 91) / 365.25)
     noise = rng.normal(0, 0.03, len(time))
 
     ditch_stage = xr.DataArray(

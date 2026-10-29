@@ -26,7 +26,7 @@ def modflow_parameter_file(tmp_path, modflow_parameters):
 
 @pytest.fixture
 def modflow_parameter_file_missing_columns(tmp_path, modflow_parameters):
-    modflow_parameters.rename(columns={"kh (m/d)": "wrong"}, inplace=True)
+    modflow_parameters = modflow_parameters.rename(columns={"kh (m/d)": "wrong"})
     file = tmp_path / "modflow_parameters_missing_columns.csv"
     modflow_parameters.to_csv(file)
     return file

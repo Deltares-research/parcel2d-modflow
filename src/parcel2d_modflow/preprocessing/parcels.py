@@ -65,7 +65,9 @@ def prepare_parcels(
     """
     parcels = parcels.copy()
 
-    if weather is not None and not {"nearest_weather_station", "weather_rg"}.issubset(parcels.columns):
+    if weather is not None and not {"nearest_weather_station", "weather_rg"}.issubset(
+        parcels.columns
+    ):
         parcels = add_weather_station_info(parcels, weather.stations)
 
     parcel_attributes = parcels.columns

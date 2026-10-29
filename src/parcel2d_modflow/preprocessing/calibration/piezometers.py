@@ -32,10 +32,8 @@ def load_parcel_piezometers_from_db(gdf, connection) -> pd.DataFrame:
                 WHERE l.locationkey={piez_id}
             """,
         )
-        piez_stage.set_index("datetime", inplace=True)
-        piez_stage.rename(
-            columns={"scalarvalue": f"{source}_{piez_id}", "datetime": "time"},
-            inplace=True,
+        piez_stage = piez_stage.set_index("datetime").rename(
+            columns={"scalarvalue": f"{source}_{piez_id}", "datetime": "time"}
         )
         piez_df.append(piez_stage)
     piezs_df = pd.concat(piez_df)
