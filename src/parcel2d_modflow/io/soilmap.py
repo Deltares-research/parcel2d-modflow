@@ -7,6 +7,48 @@ import pandas as pd
 from parcel2d_modflow.io.geopackage import Geopackage
 
 
+def read_soilmap_geometry(file: str | Path, **kwargs) -> gpd.GeoDataFrame:
+    query = """
+    SELECT
+        loc.maparea_id,
+        sn.normalsoilprofile_id,
+        su.soilunit_code,
+        loc.geom
+    FROM soilarea loc
+    JOIN soilarea_normalsoilprofile sn ON loc.maparea_id = sn.maparea_id
+    JOIN soilarea_soilunit su ON loc.maparea_id = su.maparea_id
+    WHERE su.soilunit_sequencenumber = 0
+    """
+    return gpd.read_file(file, sql=query, sql_dialect="sqlite", **kwargs)
+
+
+def read_soilprofiles(file: str | Path) -> gpd.GeoDataFrame:
+    query = """
+    WITH sc AS (
+        SELECT DISTINCT
+            sn.normalsoilprofile_id, su.soilunit_code
+        FROM soilarea_normalsoilprofile sn
+        JOIN soilarea_soilunit su ON sn.maparea_id = su.maparea_id
+        WHERE su.soilunit_sequencenumber = 0
+    )
+    SELECT
+        sc.soilunit_code,
+        sh.normalsoilprofile_id,
+        sh.lowervalue,
+        sh.uppervalue,
+        sh.organicmattercontent,
+        sh.peattype,
+        sh.loamcontent,
+        sh.lutitecontent,
+        sh.siltcontent,
+        sh.cnratio
+    FROM sc
+    JOIN soilhorizon sh ON sc.normalsoilprofile_id = sh.normalsoilprofile_id
+    ORDER BY sh.normalsoilprofile_id, sh.lowervalue
+    """
+    return gpd.read_file(file, sql=query, sql_dialect="sqlite")
+
+
 class SoilmapLayers(StrEnum):
     SOILAREA = "soilarea"
     AREAOFPEDOLOGICALINTEREST = "areaofpedologicalinterest"

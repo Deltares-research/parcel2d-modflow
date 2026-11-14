@@ -12,7 +12,7 @@ from parcel2d_modflow import modeldata, utils
 from parcel2d_modflow.config import Config
 from parcel2d_modflow.constants import BestKappa, ParameterCorrectionCurve
 from parcel2d_modflow.exceptions import ConfigError
-from parcel2d_modflow.io.soilmap import BroSoilmap
+from parcel2d_modflow.io.soilmap import read_soilmap_geometry, read_soilprofiles
 from parcel2d_modflow.modeldata import ModelData
 from parcel2d_modflow.validation import validate_modflow_parameters, validate_soilmap
 
@@ -226,17 +226,9 @@ def read_bro_soilmap(soilmap_path: str | Path, **gpd_kwargs) -> modeldata.Soilma
         and a standardized table of soil profiles.
 
     """
-    bro_soilmap = BroSoilmap.from_geopackage(soilmap_path, **gpd_kwargs)
-    soilmap = bro_soilmap.create_soilmap_with_units()
-    soilprofiles = bro_soilmap.create_soilprofile_table()
+    soilmap = read_soilmap_geometry(soilmap_path)
+    soilprofiles = read_soilprofiles(soilmap_path)
 
-    id_code_mapping = soilmap[
-        ["normalsoilprofile_id", "soilunit_code"]
-    ].drop_duplicates()
-
-    soilprofiles = soilprofiles.merge(
-        id_code_mapping, on="normalsoilprofile_id", how="left"
-    )
     soilprofiles["lithology"] = utils.determine_lithology_from(soilprofiles)
     soilprofiles["thickness"] = soilprofiles["uppervalue"] - soilprofiles["lowervalue"]
 

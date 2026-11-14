@@ -33,9 +33,8 @@ def load_parcel_ditches_from_db(gdf, connection) -> pd.DataFrame:
                 WHERE l.locationkey={ditch_id}
             """,
         )
-        ditch_stage.set_index("datetime", inplace=True)
-        ditch_stage.rename(
-            columns={"scalarvalue": name, "datetime": "time"}, inplace=True
+        ditch_stage = ditch_stage.set_index("datetime").rename(
+            columns={"scalarvalue": name, "datetime": "time"}
         )
         ditch_df.append(ditch_stage)
     ditches_df = pd.concat(ditch_df)

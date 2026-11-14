@@ -26,7 +26,7 @@ def modflow_parameter_file(tmp_path, modflow_parameters):
 
 @pytest.fixture
 def modflow_parameter_file_missing_columns(tmp_path, modflow_parameters):
-    modflow_parameters.rename(columns={"kh (m/d)": "wrong"}, inplace=True)
+    modflow_parameters = modflow_parameters.rename(columns={"kh (m/d)": "wrong"})
     file = tmp_path / "modflow_parameters_missing_columns.csv"
     modflow_parameters.to_csv(file)
     return file
@@ -184,11 +184,12 @@ def test_read_bro_soilmap(simple_bro_soilmap):
 
     assert_array_equal(
         bro_soilmap.soilmap.columns,
-        ["maparea_id", "geometry", "normalsoilprofile_id", "soilunit_code"],
+        ["maparea_id", "normalsoilprofile_id", "soilunit_code", "geometry"],
     )
     assert_array_equal(
         bro_soilmap.soilprofiles.columns,
         [
+            "soilunit_code",
             "normalsoilprofile_id",
             "lowervalue",
             "uppervalue",
@@ -198,7 +199,6 @@ def test_read_bro_soilmap(simple_bro_soilmap):
             "lutitecontent",
             "siltcontent",
             "cnratio",
-            "soilunit_code",
             "sand",
             "lithology",
             "thickness",
