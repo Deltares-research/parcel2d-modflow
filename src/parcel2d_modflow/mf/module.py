@@ -340,6 +340,7 @@ class Modflow(AbstractModule):
             complexity=complexity,
         )
         model = self.create_modflow_model(parcel, settings, complexity)
+        
         success_simple, failure_simple = self.run_modflow_model(
             model, self.parameters, settings
         )
@@ -590,7 +591,8 @@ class Modflow(AbstractModule):
 
         """
         model = ModflowModel(parcel, settings, self.discretization.thickness)
-        model.setup_flopy_simulation(complexity, self.executable, **self.modflow_kwargs)
+        convergence = 1e-3 if self.gw_recharge_method == "precip_evap" else 1e-5
+        model.setup_flopy_simulation(complexity, self.executable, convergence=convergence, **self.modflow_kwargs)
 
         if self.gw_recharge_method == "precip_evap":
             model.set_precipitation(self.precipitation)

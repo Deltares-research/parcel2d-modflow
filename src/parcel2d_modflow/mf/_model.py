@@ -77,7 +77,7 @@ class ModflowModel:
         self.dy = 1.0
         self.vertical_index = np.digitize(self.z, layer_bot, right=True)
 
-    def setup_flopy_simulation(self, complexity: str, executable: str = None, **kwargs):
+    def setup_flopy_simulation(self, complexity: str, executable: str = None, convergence: float = 1e-4, **kwargs):
         """
         Setup all the Flopy simulation objects for the Modflow model.
 
@@ -88,6 +88,8 @@ class ModflowModel:
         executable : str, optional
             Path-like string to the Modflow executable. If not provided, the model cannot
             run.
+        convergence : float, optional
+            Convergence criteria for the solver. The default is 1e-4.
 
         """
         if "verbosity_level" not in kwargs:
@@ -108,15 +110,15 @@ class ModflowModel:
 
         self.solver = flopy.mf6.ModflowIms(
             self.sim,
-            outer_dvclose=1.0e-4,
-            inner_dvclose=1.0e-5,
-            # outer_maximum=50,
+            outer_dvclose=convergence*10,
+            inner_dvclose=convergence,
+            outer_maximum=200,
             # inner_maximum=200,
-            rcloserecord=1.0e-6,
+            rcloserecord=convergence,
             complexity=complexity,
-            no_ptcrecord=["FIRST"],
+            under_relaxation = 'cooley',
             linear_acceleration="BICGSTAB",  # since newton gives assymetric matrix
-            relaxation_factor=0.98,
+            relaxation_factor=0.97,
         )
 
         # Nota bene: this is where we set Newton-Rhapson formulation
@@ -311,12 +313,14 @@ class ModflowModel:
             evapotranspiration.series, 0, evapotranspiration.start
         ).astype(np.float64)
 
+        #set the cell indices and evt profile information for the first stress period
+        #this will be repeated automatically to all following stress periods
         stress_period_data = {
             0: [
                 (
                     (0, 0, i),
                     self.surface,
-                    self.evapotranspiration[0],
+                    "et_rate",
                     evt_profile.evt_ext_depth,
                     *evt_profile.rel_segment_bottom,
                     *evt_profile.evt_fraction_values,
@@ -324,27 +328,38 @@ class ModflowModel:
                 for i in range(self.ncol)
             ]
         }
-
-        for i, t in enumerate(self.time[1:]):
-            stress_period_data[i + 1] = [
-                (
-                    (0, 0, j),
-                    self.surface,
-                    self.evapotranspiration[i + 1],
-                    evt_profile.evt_ext_depth,
-                    *evt_profile.rel_segment_bottom,
-                    *evt_profile.evt_fraction_values,
-                )
-                for j in range(self.ncol)
-            ]
-
+     
         self.remove_package(self.evt)
+
+        #create the evapotranspiration package for the model
         self.evt = flopy.mf6.ModflowGwfevt(
             self.gwf,
             fixed_cell=False,
             save_flows=True,
             nseg=len(evt_profile.evt_fraction_values) + 1,
             stress_period_data=stress_period_data,
+        )
+
+        #create list of timeseries values for the evapotranspiration package
+        timeseries_values = list(
+            zip(
+                np.concatenate(([0.0], np.cumsum(self.duration))),
+                self.evapotranspiration,
+            )
+        )
+
+        #last value is extended by 1.0 to ensure coverage beyond the final stress period
+        timeseries_values.append(
+            (timeseries_values[-1][0] + 1.0, timeseries_values[-1][1])
+        )
+
+        #initialize the package with a timeseries file, where
+        #the maximum evt rate is specified for each stress period
+        self.evt.ts.initialize(
+            filename="evt.ts",
+            timeseries=timeseries_values,
+            time_series_namerecord="et_rate",
+            interpolation_methodrecord="stepwise",
         )
 
     def set_aquifer_head(
@@ -714,6 +729,7 @@ class ModflowModel:
         pcs.plot_bc(name="wvp", package=self.aquifer_wel, color="red", kper=0)
         pcs.plot_bc(name="ssi", package=self.ssi, color="red", kper=0)
         pcs.plot_bc(name="trn", package=self.trn, color="purple", kper=0)
+        return pcs
 
     def get_phreatic_head(self):
         """

@@ -216,6 +216,24 @@ def _run_calibration_parcel(index: int, log_level: str):
     )
 
 
+def run_calibration_linear(config: Config):
+    if config.settings.save_phreatic_head is False:
+            raise TypeError(
+                "Calibration runs require the output from modflow phreatic heads. Add "
+                "`save-phreatic-head=true` in the `settings` section of the config file."
+            )
+    
+    data = read_data_from_config(config)
+
+    _init_worker(data, config)
+
+    results = []
+    for idx in data.parcels.index:
+        results.append(_run_calibration_parcel(idx, log_level=config.run_settings.log_level))
+
+    return pd.concat(results)
+    
+
 def _run_linear(config: Config):
     data = read_data_from_config(config)
 

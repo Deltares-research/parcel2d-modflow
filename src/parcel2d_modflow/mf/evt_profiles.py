@@ -23,6 +23,15 @@ class EVTProfile(NamedTuple):
     rel_segment_bottom: np.ndarray
     evt_fraction_values: np.ndarray
 
+def evt_woerkom_old():
+    start = 0.4
+    end = 4.1
+    p = 8
+
+    evt_fraction_values = [1, 0.3, 0.1, 0.01]
+    rel_segment_rate = np.array(evt_fraction_values)
+    segment_bottom = start + (end - start) * (1 - rel_segment_rate ** (1 / p))
+    return rel_segment_rate, segment_bottom
 
 def evt_woerkom():
     start = 0.4
@@ -54,11 +63,12 @@ EVT_METHODS = {
     "woerkom": evt_woerkom,
     "combi": evt_combi,
     "boon": evt_boon,
+    #"woerkom_old": evt_woerkom_old
 }
 
 @cache
 def calc_evt_profile(method_name: str) -> EVTProfile:
-    evt_method = EVT_METHODS.get(method_name, evt_woerkom)
+    evt_method = EVT_METHODS.get(method_name, evt_boon)
     rel_segment_rate, abs_segment_bottom = evt_method()
 
     evt_ext_depth = np.round(abs_segment_bottom.max(), 2)

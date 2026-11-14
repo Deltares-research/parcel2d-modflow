@@ -11,7 +11,7 @@ from parcel2d_modflow.io.read import (
 from parcel2d_modflow.logging import init_logger
 from parcel2d_modflow.mf import Modflow
 from parcel2d_modflow.modeldata import GroundwaterData, Presets, Soilmap
-from parcel2d_modflow.run import run_calibration, run_config, run_parcels
+from parcel2d_modflow.run import run_calibration, run_config, run_parcels, run_calibration_linear
 
 __version__ = "0.1.0"
 
@@ -39,5 +39,6 @@ __all__ = [
     "read_parcels",
     "run_config",
     "run_calibration",
+    "run_calibration_linear",
     "run_parcels",
 ]
