@@ -77,7 +77,7 @@ class ModflowModel:
         self.dy = 1.0
         self.vertical_index = np.digitize(self.z, layer_bot, right=True)
 
-    def setup_flopy_simulation(self, complexity: str, executable: str = None, convergence: float = 1e-4, **kwargs):
+    def setup_flopy_simulation(self, complexity: str, executable: str = None, convergence: float = 1e-5, **kwargs):
         """
         Setup all the Flopy simulation objects for the Modflow model.
 
@@ -89,7 +89,7 @@ class ModflowModel:
             Path-like string to the Modflow executable. If not provided, the model cannot
             run.
         convergence : float, optional
-            Convergence criteria for the solver. The default is 1e-4.
+            Convergence criteria for the solver. The default is 1e-5.
 
         """
         if "verbosity_level" not in kwargs:
@@ -112,10 +112,11 @@ class ModflowModel:
             self.sim,
             outer_dvclose=convergence*10,
             inner_dvclose=convergence,
-            outer_maximum=200,
-            # inner_maximum=200,
-            rcloserecord=convergence,
+            outer_maximum=500,
+            inner_maximum=200,
+            rcloserecord=convergence*0.1,
             complexity=complexity,
+            no_ptcrecord = 'first',
             under_relaxation = 'cooley',
             linear_acceleration="BICGSTAB",  # since newton gives assymetric matrix
             relaxation_factor=0.97,
