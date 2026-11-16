@@ -357,6 +357,19 @@ class Modflow(AbstractModule):
             success_complex, failure_complex = self.run_modflow_model(
                 model, self.parameters.loc[failure_simple], settings
             )
+
+        if failure_complex:
+            complexity = "COMPLEXT"
+            logger.debug(
+                "Run Parcel ID: {name}, Soilcode: {soilcode}, complexity: {complexity}",
+                name=parcel.name,
+                soilcode=parcel.soilcode,
+                complexity=complexity,
+            )
+            model = self.create_modflow_model(parcel, settings, complexity)
+            success_complex, failure_complex = self.run_modflow_model(
+                model, self.parameters.loc[failure_complex], settings
+            )
         else:
             success_complex = []
             failure_complex = []
@@ -581,7 +594,7 @@ class Modflow(AbstractModule):
         settings : :class:`~parcel2d_modflow.ModelSettings`
             NamedTuple containing general settings for the SOMERS model run.
         complexity : str
-            Complexity of the model. Can be 'simple' or 'complex'.
+            Complexity of the model. Can be 'simple' or 'complex' or 'complext'.
 
         Returns
         -------
@@ -592,7 +605,9 @@ class Modflow(AbstractModule):
         """
         model = ModflowModel(parcel, settings, self.discretization.thickness)
         convergence = 1e-3 if self.gw_recharge_method == "precip_evap" else 1e-5
-        model.setup_flopy_simulation(complexity, self.executable, convergence=convergence, **self.modflow_kwargs)
+        no_ptc = 'first' if complexity == 'COMPLEXT' else None
+        complexity = 'complex' if complexity == 'COMPLEXT' else complexity.lower()
+        model.setup_flopy_simulation(complexity, self.executable, convergence=convergence, no_ptc=no_ptc, **self.modflow_kwargs)
 
         if self.gw_recharge_method == "precip_evap":
             model.set_precipitation(self.precipitation)

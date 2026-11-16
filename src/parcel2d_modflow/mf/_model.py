@@ -77,7 +77,7 @@ class ModflowModel:
         self.dy = 1.0
         self.vertical_index = np.digitize(self.z, layer_bot, right=True)
 
-    def setup_flopy_simulation(self, complexity: str, executable: str = None, convergence: float = 1e-5, **kwargs):
+    def setup_flopy_simulation(self, complexity: str, executable: str = None, convergence: float = 1e-5, no_ptc: str = 'first', **kwargs):
         """
         Setup all the Flopy simulation objects for the Modflow model.
 
@@ -110,14 +110,15 @@ class ModflowModel:
 
         self.solver = flopy.mf6.ModflowIms(
             self.sim,
+            print_option = 'summary',
             outer_dvclose=convergence*10,
             inner_dvclose=convergence,
             outer_maximum=500,
             inner_maximum=200,
             rcloserecord=convergence*0.1,
             complexity=complexity,
-            no_ptcrecord = 'first',
-            under_relaxation = 'cooley',
+            no_ptcrecord = no_ptc,
+            under_relaxation = 'dbd',
             linear_acceleration="BICGSTAB",  # since newton gives assymetric matrix
             relaxation_factor=0.97,
         )
@@ -326,7 +327,7 @@ class ModflowModel:
                     *evt_profile.rel_segment_bottom,
                     *evt_profile.evt_fraction_values,
                 )
-                for i in range(self.ncol)
+                for i in range(1, self.ncol-1)
             ]
         }
      
