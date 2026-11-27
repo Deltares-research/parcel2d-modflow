@@ -25,11 +25,10 @@ from parcel2d_modflow.mf.evt_profiles import EVTProfile, calc_evt_profile
         ),
         (
             "boon",
-            EVTProfile(
-                evt_ext_depth=1.1,
-                rel_segment_bottom=[0.09, 0.18, 0.36, 0.64, 0.91, 1.0],
-                evt_fraction_values=[1.8, 1.43, 1.18, 0.94, 0.9, 0.01],
-            ),
+            EVTProfile(evt_ext_depth=3.0, 
+                       rel_segment_bottom=[1.00000e-06, 3.00000e-02, 7.00000e-02, 1.30000e-01, 2.70000e-01, 4.00000e-01, 9.99999e-01], 
+                       evt_fraction_values=[1.26962344, 1.0524753 , 0.93590154, 0.85699812, 0.83648565, 0.83554519, 0.8355]
+                       ),
         ),
     ],
     ids=["woerkom", "combi", "boon"],

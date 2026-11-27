@@ -358,18 +358,18 @@ class Modflow(AbstractModule):
                 model, self.parameters.loc[failure_simple], settings
             )
 
-        if failure_complex:
-            complexity = "COMPLEXT"
-            logger.debug(
-                "Run Parcel ID: {name}, Soilcode: {soilcode}, complexity: {complexity}",
-                name=parcel.name,
-                soilcode=parcel.soilcode,
-                complexity=complexity,
-            )
-            model = self.create_modflow_model(parcel, settings, complexity)
-            success_complex, failure_complex = self.run_modflow_model(
-                model, self.parameters.loc[failure_complex], settings
-            )
+            if failure_complex:
+                complexity = "COMPLEXT"
+                logger.debug(
+                    "Run Parcel ID: {name}, Soilcode: {soilcode}, complexity: {complexity}",
+                    name=parcel.name,
+                    soilcode=parcel.soilcode,
+                    complexity=complexity,
+                )
+                model = self.create_modflow_model(parcel, settings, complexity)
+                success_complex, failure_complex = self.run_modflow_model(
+                    model, self.parameters.loc[failure_complex], settings
+                )
         else:
             success_complex = []
             failure_complex = []
