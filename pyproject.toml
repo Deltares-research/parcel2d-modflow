@@ -37,6 +37,16 @@ classifiers = [
 	"Programming Language :: Python",
 ]
 
+[project.optional-dependencies]
+calibration = [
+    "h5netcdf",
+    "hydroeval",
+    "matplotlib>=3.9",
+    "psycopg2-binary",
+    "pyarrow",
+    "tqdm",
+]
+
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
